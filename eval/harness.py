@@ -1,11 +1,11 @@
 """Replay real historical merge conflicts through Magewise and score against what the maintainer committed.
 
-    python eval/harness.py <path-to-local-clone> [--repo owner/name] [--max-hunks 40] [--workers 4] [--no-history]
+    python eval/harness.py <path-to-local-clone> [--repo owner/name] [--max-hunks 40] [--workers 4] [--history git|semantic|none]
 
 For each merge commit in the clone's history (newest first) whose parents conflict in a .py file,
 the conflict is recreated with diff3 markers, each hunk goes through Magewise with history limited
 to documents older than the merge, and the result is compared to the maintainer's resolved hunk.
-Model calls are cached in eval/results[-nohistory].json, so reruns only pay for new hunks.
+Model calls are cached in eval/results-<history>.json, so reruns only pay for new hunks.
 """
 import argparse
 import json
@@ -18,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timezone, datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from magewise import core, resolver  # noqa: E402
+from magewise import core, githistory, resolver  # noqa: E402
 from magewise.retriever import HUNK, hunks, parse_conflict  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -97,7 +97,9 @@ def collect(repo_dir: str, max_hunks: int) -> list[dict]:
                 if VERSION_BUMP.search(h) or h.count("\n") > MAX_HUNK_LINES:
                     continue
                 ours, base, theirs = parse_conflict(h)
+                p1, p2 = git(repo_dir, "rev-list", "--parents", "-n1", sha).split()[1:3]
                 cases.append({
+                    "commits": githistory.side_commits(repo_dir, p1, p2, f, ours, theirs),
                     "id": f"{sha[:10]}:{f}:{i}",
                     "merge": sha,
                     "file": f,
@@ -115,9 +117,11 @@ def collect(repo_dir: str, max_hunks: int) -> list[dict]:
     return cases[:max_hunks]
 
 
-def run_case(case: dict, repo: str, history: bool) -> dict:
+def run_case(case: dict, repo: str, history: str) -> dict:
     try:
-        if history:
+        if history == "git":
+            out = core.resolve(repo, case["file"], case["hunk"], before=case["before"], commits=case["commits"])
+        elif history == "semantic":
             out = core.resolve(repo, case["file"], case["hunk"], before=case["before"])
         else:
             v = resolver.resolve_hunk(case["file"], case["hunk"], [])
@@ -155,10 +159,17 @@ def score(cases: list[dict], results: dict) -> dict:
     }
 
 
-def report(s: dict, repo: str, history: bool) -> str:
+HISTORY_MODES = {
+    "git": "history from the commits behind each side (git log -L) and the PRs they reference",
+    "semantic": "history from similarity search over the index",
+    "none": "no history (ablation)",
+}
+
+
+def report(s: dict, repo: str, history: str) -> str:
     pct = lambda a, b: f"{100 * a / b:.0f}%" if b else "n/a"
     lines = [
-        f"# Magewise eval: {repo}{'' if history else ' (no history ablation)'}",
+        f"# Magewise eval: {repo}, {HISTORY_MODES[history]}",
         "",
         f"Real merge conflicts from {repo}'s history, recreated from each merge's parents and scored against the maintainer's resolution.",
         "",
@@ -173,7 +184,7 @@ def report(s: dict, repo: str, history: bool) -> str:
         f"| Baseline \"always take theirs\" | {s['take_theirs']} / {s['total']} ({pct(s['take_theirs'], s['total'])}) |",
         f"| Maintainer combined both sides | {s['combined']} / {s['total']} |",
         "",
-        "Matching ignores trailing whitespace and leading/trailing blank lines. History is limited to documents created before each merge.",
+        "Matching ignores trailing whitespace and leading/trailing blank lines. History is limited to what existed before each merge.",
         "",
         "| Hunk | Maintainer took | Magewise | Outcome |",
         "|---|---|---|---|",
@@ -189,10 +200,10 @@ def main() -> None:
     ap.add_argument("--repo", default=os.environ.get("DEMO_REPO"), help="owner/name of the indexed repo")
     ap.add_argument("--max-hunks", type=int, default=40)
     ap.add_argument("--workers", type=int, default=4)
-    ap.add_argument("--no-history", action="store_true", help="ablation: resolve without retrieved history")
+    ap.add_argument("--history", choices=HISTORY_MODES, default="git", help="where resolution context comes from")
     args = ap.parse_args()
-    history = not args.no_history
-    suffix = "" if history else "-nohistory"
+    history = args.history
+    suffix = f"-{history}"
     cache_path = os.path.join(HERE, f"results{suffix}.json")
 
     cases = collect(args.clone, args.max_hunks)

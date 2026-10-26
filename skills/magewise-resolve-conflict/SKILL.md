@@ -25,6 +25,7 @@ For each conflict hunk (from `<<<<<<<` to `>>>>>>>`), call the MCP tool `resolve
 - `file_path`: path of the conflicted file
 - `conflict_markers`: that one hunk, verbatim, including the marker lines
 - `pr_number`: the PR being merged, if there is one
+- `repo_path`: absolute path of the checkout where the merge is in progress, if Magewise runs locally (`magewise-mcp` over stdio). It lets Magewise read the exact commits behind each side. Omit it for a hosted server.
 
 A call takes 30 seconds to 2 minutes. Calls for different hunks can run in parallel.
 

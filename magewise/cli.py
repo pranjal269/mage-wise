@@ -26,9 +26,9 @@ def _github_repo() -> str:
     return m.group(1)
 
 
-def _resolve(repo: str, path: str, hunk: str) -> dict:
+def _resolve(repo: str, root: str, path: str, hunk: str) -> dict:
     try:
-        return core.resolve(repo, path, hunk)
+        return core.resolve(repo, path, hunk, repo_path=root)
     except Exception as e:  # a failed hunk is reported as needing a human, never silently dropped
         return {"classification": "error", "resolution": None, "reasoning": f"{type(e).__name__}: {e}", "sources": []}
 
@@ -47,7 +47,7 @@ def resolve(args) -> int:
         jobs += [(f, text, h) for h in hunks(text)]
     print(f"Resolving {len(jobs)} hunk(s) in {len(files)} file(s) against {repo} (30s-2min each)...\n")
     with ThreadPoolExecutor(args.workers) as ex:
-        results = list(ex.map(lambda j: _resolve(repo, j[0], j[2]), jobs))
+        results = list(ex.map(lambda j: _resolve(repo, root, j[0], j[2]), jobs))
 
     texts = {f: t for f, t, _ in jobs}
     pending = 0

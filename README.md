@@ -15,30 +15,28 @@ Ships as an **MCP server** (stdio or streamable HTTP), a **CLI**, a **REST API**
 
 ## Results
 
-Replayed against **40 real conflict hunks from 20 merge commits** in [pallets/flask](https://github.com/pallets/flask)'s history, scored against what the maintainer actually committed:
+Replayed against **40 real conflict hunks from 20 merge commits** in [pallets/flask](https://github.com/pallets/flask)'s history, scored against what the maintainer actually committed. Same 40 hunks, three sources of history:
 
-| | |
-|---|---|
-| Hunks Magewise resolved automatically | **23 / 40 (58%)** |
-| ...of those, identical to the maintainer's resolution | **18 / 23 (78%)** |
-| Deferred to a human as semantic | 17 / 40 |
-| Baseline: always take "ours" / always take "theirs" | 15% / 12% |
-| Maintainer needed to combine both sides | 29 / 40 (73%) |
+| | Git history (default with a checkout) | Similarity search (hosted) | No history |
+|---|---|---|---|
+| Resolved automatically | **29 / 40 (72%)** | 23 / 40 (58%) | 28 / 40 (70%) |
+| Identical to the maintainer | **22** | 18 | 20 |
+| Resolved but different | 7 | **5** | 8 |
+| Precision (identical / resolved) | 76% | **78%** | 71% |
+| Deferred to a human | 11 | 17 | 12 |
 
-Taking either side wins 12–15% of the time because in most real conflicts the maintainer had to keep both sides' changes. Of the 5 resolved hunks that didn't match exactly, 3 differ only in formatting (quote style, trailing comma) and 2 are genuine errors. Matching is strict: whitespace-insensitive, otherwise exact. The 40 hunks are all the scorable ones found, not a hand-picked set, but several come from the same merge, so they are not independent samples.
+Baselines on the same hunks: always take "ours" 15%, always take "theirs" 12%. The maintainer had to combine both sides in 29 of 40 (73%), which is why picking a side rarely works.
 
-**Does the history lookup help?** We re-ran the same 40 hunks with no retrieved history (`--no-history`):
+What this shows, and doesn't:
 
-| | With history | Without |
-|---|---|---|
-| Resolved automatically | 23 | 28 |
-| Identical to the maintainer | 18 | 20 |
-| Resolved but wrong | **5** | 8 |
-| Precision (identical / resolved) | **78%** | 71% |
+- **Magewise beats picking a side by a wide margin in every mode**, and most of that is there even without history, so it comes from the model reading the conflict with its common ancestor (diff3 markers).
+- **Git history gets the most hunks right** (22 vs 20 without history) by finding the actual commits behind each side; for example, it learns that one side of a merge was "Reformat with black". **Similarity search is the most cautious**: fewest wrong answers, but it defers the most.
+- The differences between modes are a few hunks on a small, clustered sample (several hunks share a merge), and run-to-run model variance wasn't measured, so none of them is statistically established.
+- "Resolved but different" includes formatting-only differences (quote style, trailing commas) and real errors. In git mode, 1 of the 7 is formatting-only by an automatic check, and at least one more is only a line break. The rest are wrong, so **always run the tests before committing a resolution**.
 
-History did not increase the number of correct resolutions. It made Magewise more cautious: it deferred 5 more hunks to a human and made fewer wrong auto-resolutions. On a sample this small, treat that as a modest safety benefit, not a proven accuracy gain. Most of the lift over the "take a side" baselines is present even without history, so it comes from the model reading the conflict itself (with the common-ancestor section from diff3 markers), not from retrieval.
+Matching is whitespace-insensitive, otherwise exact. The 40 hunks are all the scorable ones found walking Flask's merges newest-first, not a hand-picked set. History is limited to what existed before each merge.
 
-Full per-hunk table: [eval/results.md](eval/results.md).
+Per-hunk tables: [git](eval/results-git.md), [similarity](eval/results-semantic.md), [none](eval/results-none.md).
 
 ## Install
 
@@ -129,7 +127,7 @@ conflict hunk --> retrieve history for both sides ---+
               --> validate (parseable, no leftover markers) --> response
 ```
 
-- **Retrieval** prefers documents that touched the conflicted file and are semantically close to each side's code, plus issues they link to.
+- **Retrieval**, with a local checkout (CLI, stdio MCP with `repo_path`): `git log -L` finds the commits since the merge base that touched exactly each side's lines, then the PRs that merged them ("Merge pull request #N" or "(#N)") and the issues those link to. Without a checkout (hosted): similarity search over the index, preferring documents that touched the conflicted file.
 - **Model**: NVIDIA Nemotron (open weights) through an OpenAI-compatible API, behind one function in [magewise/llm.py](magewise/llm.py).
 - **Safety default**: anything ambiguous is classified *semantic*. Magewise proposes, the caller applies and tests.
 
@@ -145,7 +143,8 @@ conflict hunk --> retrieve history for both sides ---+
 ```bash
 git clone https://github.com/pallets/flask /tmp/flask
 python eval/harness.py /tmp/flask --repo pallets/flask --max-hunks 40
-python eval/harness.py /tmp/flask --repo pallets/flask --max-hunks 40 --no-history   # ablation
+python eval/harness.py /tmp/flask --repo pallets/flask --max-hunks 40 --history semantic   # similarity search only
+python eval/harness.py /tmp/flask --repo pallets/flask --max-hunks 40 --history none       # ablation
 ```
 
 ## Development
@@ -157,6 +156,7 @@ pytest -q tests
 
 ## Limitations
 
-- History attribution is approximate: documents are matched to each side by similarity, not `git blame`.
+- Hosted mode has no checkout, so it attributes history to each side by similarity, which is much weaker than the git-based lookup.
+- The index holds a repo's most recent PRs (300 by default); older conflicts get commit messages but not their PR discussion.
 - One hunk per call; hunk quality depends on the model. Always run tests before committing a resolution.
 - Hosted Nemotron latency varies from seconds to ~2 minutes per call.

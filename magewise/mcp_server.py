@@ -42,7 +42,12 @@ async def _with_heartbeat(ctx: Context, fn):
 
 @mcp.tool()
 async def resolve_conflict(
-    repo: str, file_path: str, conflict_markers: str, ctx: Context, pr_number: int | None = None
+    repo: str,
+    file_path: str,
+    conflict_markers: str,
+    ctx: Context,
+    pr_number: int | None = None,
+    repo_path: str | None = None,
 ) -> dict:
     """Propose a resolution for ONE merge-conflict hunk.
 
@@ -50,12 +55,16 @@ async def resolve_conflict(
     conflict_markers: one hunk, from <<<<<<< to >>>>>>>. Use `git config merge.conflictstyle diff3`
         so the common ancestor (||||||| section) is included; accuracy is much better with it.
     pr_number: the PR being merged, if any.
+    repo_path: absolute path of the local checkout where the merge is in progress (local servers only).
+        Lets Magewise find the exact commits behind each side instead of guessing from similarity.
 
     Returns classification ("textual-only" or "semantic"), resolution (the code that replaces the
     whole hunk, or null when a human must decide), reasoning, and the history documents used (sources).
     Never commit a resolution for a "semantic" classification. Takes 30s to 2 minutes.
     """
-    return await _with_heartbeat(ctx, partial(core.resolve, repo, file_path, conflict_markers, pr_number))
+    return await _with_heartbeat(
+        ctx, partial(core.resolve, repo, file_path, conflict_markers, pr_number, repo_path=repo_path)
+    )
 
 
 @mcp.tool()
