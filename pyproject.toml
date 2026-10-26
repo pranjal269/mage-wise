@@ -10,5 +10,9 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["chromadb", "PyGithub", "openai", "mcp>=2", "fastapi", "uvicorn"]
 
+[project.optional-dependencies]
+dev = ["pytest"]
+
 [project.scripts]
+magewise = "magewise.cli:main"
 magewise-mcp = "magewise.mcp_server:main"

@@ -1,5 +1,7 @@
+import functools
 import os
 import re
+import threading
 from datetime import datetime, timezone
 
 import chromadb
@@ -9,11 +11,22 @@ from github import Auth, Github
 MAX_CHARS = 4000
 
 
-def collection(repo: str):
+# Chroma's client setup races when several threads create clients at once (HTTP server, eval workers),
+# so there is one client, and every Chroma call goes through this lock.
+# ponytail: global lock; Chroma calls take milliseconds next to the model call, so it doesn't bottleneck.
+CHROMA_LOCK = threading.RLock()
+
+
+@functools.cache
+def _client():
     # Not ./chroma: when run as an MCP server the cwd is the user's own repo.
     default = os.path.join(os.path.expanduser("~"), ".magewise", "chroma")
-    client = chromadb.PersistentClient(path=os.environ.get("CHROMA_PERSIST_DIR", default))
-    return client.get_or_create_collection(repo.replace("/", "__"))
+    return chromadb.PersistentClient(path=os.environ.get("CHROMA_PERSIST_DIR", default))
+
+
+def collection(repo: str):
+    with CHROMA_LOCK:
+        return _client().get_or_create_collection(repo.replace("/", "__"))
 
 
 def _pipe(items) -> str:
@@ -68,7 +81,8 @@ def index_repo(repo: str, since: str | None, limit: int = 500) -> int:
         text = f"Issue #{issue.number}: {issue.title}\n\n{issue.body or ''}"
         add(f"issue-{issue.number}", "issue", issue.number, text, [], _refs(issue.body), issue.created_at, issue.user)
 
-    col = collection(repo)
-    for i in range(0, len(ids), 500):
-        col.upsert(ids=ids[i:i + 500], documents=docs[i:i + 500], metadatas=metas[i:i + 500])
+    with CHROMA_LOCK:
+        col = collection(repo)
+        for i in range(0, len(ids), 500):
+            col.upsert(ids=ids[i:i + 500], documents=docs[i:i + 500], metadatas=metas[i:i + 500])
     return len(ids)

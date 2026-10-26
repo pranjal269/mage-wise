@@ -1,35 +1,67 @@
+import json
 import re
 
 from .llm import llm
 from .retriever import format_context
 
-PROMPT = """Resolve this Git merge conflict in {file_path} so that BOTH intents are kept.
+LABELS = ("textual-only", "semantic")
+MARKER = re.compile(r"^(<{7}|\|{7}|={7}|>{7})", re.M)
 
-Ours intended: {ours_intent}
-Theirs intended: {theirs_intent}
+PROMPT = """You are resolving a Git merge conflict in {file_path}. Use the repository history to work out WHY each side changed the code.
+
+The conflict has up to three sections: ours (after <<<<<<<), the common ancestor "base" (after |||||||, when present), and theirs (after =======, up to >>>>>>>). Compare each side to the base to see what that side actually changed. A side identical to the base changed nothing.
+
+Classify the conflict:
+- "textual-only": both sides touch overlapping lines but change independent things (e.g. one adds a parameter, the other fixes a typo in the same function). Both changes can be kept.
+- "semantic": both sides change the SAME behavior in incompatible ways (e.g. one sets a default to A and the other to B; one adds validation and the other removes it). A human must choose.
+If unsure, answer "semantic".
 
 ## Conflict
-The sections are: ours (<<<<<<< to |||||||), the common ancestor base (||||||| to =======, when present), theirs (======= to >>>>>>>). Apply the changes each side made relative to the base.
 {conflict}
 
-## Repository history
+## Repository history (PRs, commits, review comments, issues)
 {context}
 
-Output only the code that replaces the whole conflict hunk (from <<<<<<< to >>>>>>>), in one fenced code block.
-Keep the original indentation. No conflict markers. Do not change anything outside the hunk."""
+First output only this JSON object:
+{{"ours_intent": "...", "theirs_intent": "...", "label": "textual-only" or "semantic", "reason": "one or two sentences"}}
+
+Then, only if the label is "textual-only", output one fenced code block with the code that replaces the whole conflict hunk (everything from <<<<<<< to >>>>>>>), applying both sides' changes. Keep the original indentation, include no conflict markers, and change nothing outside the hunk."""
 
 
-def propose(file_path: str, conflict_markers: str, ctx: list[dict], verdict: dict) -> str | None:
-    """F4: merged hunk for a textual-only conflict, or None if the model returned something unusable."""
-    out = llm(PROMPT.format(
-        file_path=file_path,
-        ours_intent=verdict.get("ours_intent", "unknown"),
-        theirs_intent=verdict.get("theirs_intent", "unknown"),
-        conflict=conflict_markers,
-        context=format_context(ctx),
-    ))
-    m = re.search(r"```[^\n]*\n(.*?)```", out, re.S)
-    code = m.group(1) if m else None
-    if code is None or re.search(r"^(<{7}|={7}|>{7})", code, re.M):
-        return None
-    return code
+def _salvage(text: str) -> dict:
+    """Models sometimes emit near-JSON (e.g. an unquoted string); pull out the fields we need."""
+    field = lambda k: (re.search(rf'"{k}"\s*:\s*"?([^"\n]*)', text) or [None, ""])[1].strip(' ",')
+    return {k: field(k) for k in ("ours_intent", "theirs_intent", "label", "reason")}
+
+
+def parse(out: str) -> tuple[dict, str | None]:
+    """Split model output into (verdict JSON, fenced code or None)."""
+    start = out.find("{")
+    try:
+        verdict, end = json.JSONDecoder().raw_decode(out, start) if start >= 0 else ({}, 0)
+    except json.JSONDecodeError:
+        verdict, end = _salvage(out), 0
+    if not isinstance(verdict, dict):
+        verdict = {}
+    code = re.search(r"```[^\n]*\n(.*?)```", out[end:], re.S)
+    return verdict, code.group(1) if code else None
+
+
+def resolve_hunk(file_path: str, conflict_markers: str, ctx: list[dict]) -> dict:
+    """F3+F4 in one model call: classify the hunk and, if textual-only, merge it.
+
+    Returns {"label", "reason", "ours_intent", "theirs_intent", "resolution"}. Anything we can't trust
+    (unparseable output, missing code, leftover markers) comes back as "semantic" so it is never auto-applied.
+    """
+    out = llm(PROMPT.format(file_path=file_path, conflict=conflict_markers, context=format_context(ctx)))
+    verdict, code = parse(out)
+    if verdict.get("label") not in LABELS:
+        return {"label": "semantic", "reason": f"Model output unparseable, needs a human: {out[:300]}", "resolution": None}
+    verdict["resolution"] = None
+    if verdict["label"] == "textual-only":
+        if code is None or MARKER.search(code):
+            verdict["label"] = "semantic"
+            verdict["reason"] = f"{verdict.get('reason', '')} (No clean merged code was produced, so a human must decide.)"
+        else:
+            verdict["resolution"] = code
+    return verdict

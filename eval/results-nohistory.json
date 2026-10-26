@@ -1,0 +1,242 @@
+{
+ "6a2f545bfd:src/flask/cli.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Both sides address the same missing type argument on click.ParamType but with incompatible mechanisms: one supplies t.Any, the other silences the error; they are competing solutions to the same type-checking concern.",
+  "sources": []
+ },
+ "5880befcd2:src/flask/app.py:0": {
+  "classification": "textual-only",
+  "resolution": "                response = self.handle_exception(ctx, e)\n            except:\n",
+  "reasoning": "One side extends the handle_exception call; the other only deletes a lint suppression comment on the except line, so both changes are independent and can be kept.",
+  "sources": []
+ },
+ "97c830190f:src/flask/testing.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Both sides modify the same cookie-update behavior: ours removes all version fallbacks and always uses the 3-arg call, while theirs adds try/except fallbacks and keeps the old extract_wsgi branch; these are incompatible strategies that a human must reconcile.",
+  "sources": []
+ },
+ "7ee9ceb71e:src/flask/app.py:0": {
+  "classification": "textual-only",
+  "resolution": "from werkzeug.utils import cached_property\n",
+  "reasoning": "HEAD adds an unrelated import and the other branch removes a different import; both can be applied together by keeping cached_property and dropping url_quote.",
+  "sources": []
+ },
+ "48fe96588c:src/flask/templating.py:1": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Both sides rewrite the same function body (context acquisition plus the _render call) in incompatible ways: ours switches to current_app and a new _render signature, while theirs retains _app_ctx_stack.top and only adds a None check, so both cannot be applied to the same lines.",
+  "sources": []
+ },
+ "258d68b6ff:tests/test_reqctx.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Both sides act on the same test functions in incompatible ways: HEAD modifies test_bad_environ_raises_bad_request while the other branch removes it (and the neighboring tests), so both changes cannot be kept and a human must choose.",
+  "sources": []
+ },
+ "7a2d5fb6df:src/flask/blueprints.py:0": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def app_errorhandler(\n        self, code: t.Union[t.Type[Exception], int]\n    ) -> t.Callable[[ft.ErrorHandlerDecorator], ft.ErrorHandlerDecorator]:\n",
+  "reasoning": "Ours only inserts a decorator above the function while theirs only rewrites the signature and return type; the changes are independent and can both be kept.",
+  "sources": []
+ },
+ "7a2d5fb6df:src/flask/scaffold.py:1": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def post(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
+  "reasoning": "Ours only prepends an orthogonal decorator while leaving the signature unchanged from base; theirs only reformats that signature and adjusts the return type annotation, so both changes touch independent aspects and can be kept together.",
+  "sources": []
+ },
+ "7a2d5fb6df:src/flask/scaffold.py:2": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def put(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
+  "reasoning": "Ours only adds a decorator while leaving the base signature intact, whereas theirs changes the signature layout and return type; the changes are independent and both can be kept.",
+  "sources": []
+ },
+ "daca74d93a:src/flask/templating.py:0": {
+  "classification": "textual-only",
+  "resolution": "    ctx = app_ctx._get_current_object()\n    rv: dict[str, t.Any] = {\"g\": ctx.g}\n\n    if ctx.has_request:\n        rv[\"request\"] = ctx.request\n        rv[\"session\"] = ctx.session\n        # The session proxy cannot be replaced, accessing it gets\n        # RequestContext.session, which sets session.accessed.\n",
+  "reasoning": "Ours changes the mechanism for obtaining context (a refactor), while theirs only adds a documentation comment without changing behavior; both changes are independent and can be kept together.",
+  "sources": []
+ },
+ "7a2d5fb6df:src/flask/scaffold.py:3": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def delete(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
+  "reasoning": "Ours only adds a new decorator line while leaving the def line identical to the base; theirs modifies that def line's formatting and return type. The changes are independent and both can be kept.",
+  "sources": []
+ },
+ "7a2d5fb6df:src/flask/scaffold.py:5": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def route(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
+  "reasoning": "HEAD only adds a decorator line, while the other side only rewrites the signature and return type; the changes are independent and can both be kept.",
+  "sources": []
+ },
+ "48fe96588c:src/flask/templating.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours rewrites how the app and template are obtained and changes the _render invocation (dropping update_template_context and reordering arguments), while theirs keeps the original flow and only adds a context-active guard; they alter the same rendering behavior incompatibly.",
+  "sources": []
+ },
+ "7a2d5fb6df:src/flask/scaffold.py:4": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def patch(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
+  "reasoning": "Ours only adds a decorator line above the def; theirs only rewrites the def line's layout and return annotation. The changes are independent and both can be kept.",
+  "sources": []
+ },
+ "9e2e1de2fc:src/flask/blueprints.py:1": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def before_app_request(\n        self, f: ft.BeforeRequestCallable\n    ) -> ft.BeforeRequestCallable:\n",
+  "reasoning": "One side adds a decorator while the other reformats the signature and updates the type reference; the changes are independent and both can be kept.",
+  "sources": []
+ },
+ "7a2d5fb6df:src/flask/scaffold.py:0": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def get(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
+  "reasoning": "Ours only adds a decorator above the method while theirs only changes the signature formatting and return type annotation; the changes touch different concerns and can both be kept.",
+  "sources": []
+ },
+ "9e2e1de2fc:src/flask/blueprints.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "One side preserves and extends the imports, while the other removes them all; keeping both would drop imports the module likely needs, so a human must decide which imports stay.",
+  "sources": []
+ },
+ "9e2e1de2fc:src/flask/blueprints.py:2": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def teardown_app_request(self, f: ft.TeardownCallable) -> ft.TeardownCallable:\n",
+  "reasoning": "One side adds a decorator while the other only updates type annotations; both changes are independent and can be combined.",
+  "sources": []
+ },
+ "1ce0f774c9:setup.py:0": {
+  "classification": "textual-only",
+  "resolution": "        \"Werkzeug >= 2.0\",\n        \"Jinja2 >= 3.0\",\n        \"itsdangerous >= 2.0\",\n        \"click >= 8.0\",\n",
+  "reasoning": "HEAD changes the click version while the other branch only reformats whitespace; the changes are independent and can both be kept, e.g. click >= 8.0.",
+  "sources": []
+ },
+ "9e2e1de2fc:src/flask/blueprints.py:3": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def app_url_defaults(self, f: ft.URLDefaultCallable) -> ft.URLDefaultCallable:\n",
+  "reasoning": "Ours only adds a decorator and theirs only changes how the type is referenced; the changes are independent and both can be kept.",
+  "sources": []
+ },
+ "9e2e1de2fc:src/flask/scaffold.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "One side deletes the `ErrorHandlerCallable` import while the other retains and reorders it, so the import cannot be both present and absent; a human must decide.",
+  "sources": []
+ },
+ "7a2d5fb6df:src/flask/typing.py:0": {
+  "classification": "textual-only",
+  "resolution": "if t.TYPE_CHECKING:  # pragma: no cover\n",
+  "reasoning": "One side adds a coverage pragma comment while the other only deletes a preceding blank line; the changes touch overlapping lines but are independent and can both be kept.",
+  "sources": []
+ },
+ "7d2ba3e1fc:src/flask/json/__init__.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Both sides rewrite the same ``:param kwargs:`` line to different functions (``json.dump`` vs ``json.loads``), so they change the same behavior incompatibly and cannot both be kept.",
+  "sources": []
+ },
+ "9b424e9da9:setup.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Both sides change the same dependency version constraints in opposite directions (raising vs. lowering minimums), which are incompatible requirements a human must reconcile.",
+  "sources": []
+ },
+ "ef27c1b749:setup.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Both sides edit the same dependency lines and set incompatible minimum versions for Werkzeug (>=0.15 vs >=0.14), so a human must choose which constraint to keep.",
+  "sources": []
+ },
+ "7fdd0df6ec:docs/conf.py:0": {
+  "classification": "textual-only",
+  "resolution": "import packaging.version\n",
+  "reasoning": "HEAD is identical to the base (no real change), while the other side only changes which part of `packaging` is imported; there is no incompatible change to the same behavior, so both can be kept by importing `packaging.version`.",
+  "sources": []
+ },
+ "b05a685a03:tests/test_helpers.py:0": {
+  "classification": "textual-only",
+  "resolution": "        assert \"Unable to infer MIME-type\" in str(excinfo.value)\n        assert \"no filename is available\" in str(excinfo.value)\n",
+  "reasoning": "HEAD only altered quote style while the other branch altered the excinfo expression; the changes are independent and can both be kept.",
+  "sources": []
+ },
+ "2844fdb82e:src/flask/cli.py:0": {
+  "classification": "textual-only",
+  "resolution": "                fg=\"yellow\", err=True)\n        return\n",
+  "reasoning": "Ours only re-quotes and re-flows the same fg argument while theirs additively adds err=True; they touch independent aspects of the call and can be combined as fg=\"yellow\", err=True).",
+  "sources": []
+ },
+ "b05a685a03:examples/tutorial/tests/test_db.py:0": {
+  "classification": "textual-only",
+  "resolution": "    assert \"closed\" in str(e.value)\n",
+  "reasoning": "The HEAD side only alters quote style while the other side alters the expression being asserted; the changes are independent and can both be kept.",
+  "sources": []
+ },
+ "563ef469f7:docs/conf.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Model output unparseable, needs a human: ",
+  "sources": []
+ },
+ "29111a3259:tests/test_reqctx.py:0": {
+  "classification": "textual-only",
+  "resolution": "    try:\n        # suppress Werkzeug 0.15 warning about name mismatch\n        with pytest.warns(None):\n            with app.test_request_context(\n                \"/\", environ_overrides={\"HTTP_HOST\": \"localhost\"}\n            ):\n",
+  "reasoning": "Ours only changes formatting of the same call while theirs independently adds warning suppression; they touch overlapping lines but change different concerns, so both can be kept.",
+  "sources": []
+ },
+ "05a4e15ee4:flask/json/__init__.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Both sides make compatible formatting changes by joining the conditional onto one line, but they also alter the same behavior incompatibly: ours keeps current_app.json_encoder while theirs replaces it with app.json_encoder, so both cannot be kept.",
+  "sources": []
+ },
+ "afd6250bab:tests/test_helpers.py:0": {
+  "classification": "textual-only",
+  "resolution": "    @pytest.mark.usefixtures(\"req_ctx\")\n    @pytest.mark.parametrize(\n        (\"filename\", \"ascii\", \"utf8\"),\n        (\n            (\"index.html\", \"index.html\", False),\n            (\n                u\"\u00d1and\u00fa\uff0fping\u00fcino.txt\",\n                '\"Nandu/pinguino.txt\"',\n                \"%C3%91and%C3%BA%EF%BC%8Fping%C3%BCino.txt\",\n            ),\n            (u\"V\u00f6gel.txt\", \"Vogel.txt\", \"V%C3%B6gel.txt\"),\n            # Native string not marked as Unicode on Python 2\n            (\"t\u00e9st.txt\", \"test.txt\", \"t%C3%A9st.txt\"),\n            # \":/\" are not safe in filename* value\n            (u\"\u0442\u0435:/\u0441\u0442\", '\":/\"', \"%D1%82%D0%B5%3A%2F%D1%81%D1%82\"),\n        ),\n    )\n",
+  "reasoning": "Ours only changes formatting and quote style; theirs only appends a new test case tuple. The changes are independent and both can be kept.",
+  "sources": []
+ },
+ "05a4e15ee4:flask/json/__init__.py:1": {
+  "classification": "textual-only",
+  "resolution": "        if not app.config[\"JSON_AS_ASCII\"]:\n            kwargs.setdefault(\"ensure_ascii\", False)\n",
+  "reasoning": "HEAD only alters quote style while the other side renames current_app to app; the changes are independent and can both be kept.",
+  "sources": []
+ },
+ "05a4e15ee4:flask/cli.py:0": {
+  "classification": "textual-only",
+  "resolution": "            \"   WARNING: This is a development server. \"\n            \"Do not use it in a production deployment.\",\n            fg=\"red\",\n        )\n        click.secho(\"   Use a production WSGI server instead.\", dim=True)\n",
+  "reasoning": "Ours changed only quoting/formatting (its warning text matches the base), whereas theirs changed only the warning wording; the changes are independent and both can be kept.",
+  "sources": []
+ },
+ "05a4e15ee4:flask/json/__init__.py:3": {
+  "classification": "textual-only",
+  "resolution": "            \"cls\",\n            bp.json_decoder if bp and bp.json_decoder else app.json_decoder,\n",
+  "reasoning": "Ours only changes quoting/formatting and keeps current_app; theirs only changes current_app to app while keeping formatting. The changes are independent and can both be kept.",
+  "sources": []
+ },
+ "05a4e15ee4:flask/json/__init__.py:4": {
+  "classification": "textual-only",
+  "resolution": "    _dump_arg_defaults(kwargs, app=app)\n    encoding = kwargs.pop(\"encoding\", None)\n",
+  "reasoning": "Ours is purely quoting on a line theirs left unchanged, and theirs independently adds a parameter to the preceding call; both changes can be combined.",
+  "sources": []
+ },
+ "05a4e15ee4:flask/json/__init__.py:5": {
+  "classification": "textual-only",
+  "resolution": "    _dump_arg_defaults(kwargs, app=app)\n    encoding = kwargs.pop(\"encoding\", None)\n",
+  "reasoning": "The sides modify different lines within the same hunk\u2014one only alters quote style, the other adds a parameter\u2014so both changes are independent and can be kept together.",
+  "sources": []
+ },
+ "afd6250bab:src/flask/helpers.py:0": {
+  "classification": "textual-only",
+  "resolution": "                \"filename\": unicodedata.normalize(\"NFKD\", attachment_filename).encode(\n                    \"ascii\", \"ignore\"\n                ),\n                \"filename*\": \"UTF-8''%s\" % url_quote(attachment_filename, safe=b\"\"),\n",
+  "reasoning": "HEAD only changes quoting/formatting, while the other side adds an independent url_quote parameter; both changes can be combined.",
+  "sources": []
+ },
+ "05a4e15ee4:flask/json/__init__.py:2": {
+  "classification": "textual-only",
+  "resolution": "        kwargs.setdefault(\"sort_keys\", app.config[\"JSON_SORT_KEYS\"])\n",
+  "reasoning": "Ours only alters quote style while theirs changes the config object; the changes are independent and can both be kept.",
+  "sources": []
+ }
+}
