@@ -1,6 +1,0 @@
-fastapi
-uvicorn
-chromadb
-langgraph
-PyGithub
-groq

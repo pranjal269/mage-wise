@@ -1,0 +1,14 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "magewise"
+version = "0.1.0"
+description = "Intent-aware merge conflict resolver: an MCP server and REST API that retrieves why each side changed the code."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["chromadb", "PyGithub", "openai", "mcp>=2", "fastapi", "uvicorn"]
+
+[project.scripts]
+magewise-mcp = "magewise.mcp_server:main"
