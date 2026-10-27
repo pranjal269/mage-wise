@@ -15,28 +15,28 @@ Ships as an **MCP server** (stdio or streamable HTTP), a **CLI**, a **REST API**
 
 ## Results
 
-Replayed against **40 real conflict hunks from 20 merge commits** in [pallets/flask](https://github.com/pallets/flask)'s history, scored against what the maintainer actually committed. Same 40 hunks, three sources of history:
+Replayed against **40 real conflict hunks from 20 merge commits** in [pallets/flask](https://github.com/pallets/flask)'s history, scored against what the maintainer actually committed. Same 40 hunks, four sources of history:
 
-| | Git history (default with a checkout) | Similarity search (hosted) | No history |
-|---|---|---|---|
-| Resolved automatically | **29 / 40 (72%)** | 23 / 40 (58%) | 28 / 40 (70%) |
-| Identical to the maintainer | **22** | 18 | 20 |
-| Resolved but different | 7 | **5** | 8 |
-| Precision (identical / resolved) | 76% | **78%** | 71% |
-| Deferred to a human | 11 | 17 | 12 |
+| | Git, with base history (default with a checkout) | Git, since merge base only | Similarity search (hosted) | No history |
+|---|---|---|---|---|
+| Resolved automatically | 29 / 40 (72%) | 29 / 40 (72%) | 23 / 40 (58%) | 28 / 40 (70%) |
+| Identical to the maintainer | 21 | 22 | 18 | 20 |
+| Resolved but different | 8 | 7 | 5 | 8 |
+| Precision (identical / resolved) | 72% | 76% | 78% | 71% |
+| Deferred to a human | 11 | 11 | 17 | 12 |
 
 Baselines on the same hunks: always take "ours" 15%, always take "theirs" 12%. The maintainer had to combine both sides in 29 of 40 (73%), which is why picking a side rarely works.
 
 What this shows, and doesn't:
 
-- **Magewise beats picking a side by a wide margin in every mode**, and most of that is there even without history, so it comes from the model reading the conflict with its common ancestor (diff3 markers).
-- **Git history gets the most hunks right** (22 vs 20 without history) by finding the actual commits behind each side; for example, it learns that one side of a merge was "Reformat with black". **Similarity search is the most cautious**: fewest wrong answers, but it defers the most.
-- The differences between modes are a few hunks on a small, clustered sample (several hunks share a merge), and run-to-run model variance wasn't measured, so none of them is statistically established.
-- "Resolved but different" includes formatting-only differences (quote style, trailing commas) and real errors. In git mode, 1 of the 7 is formatting-only by an automatic check, and at least one more is only a line break. The rest are wrong, which is why the CLI can gate resolutions on your tests (`--test`) and the MCP skill tells agents to run tests before committing.
+- **Magewise beats picking a side by a wide margin in every mode**: 45–55% of all hunks resolved identically to the maintainer, against 12–15% for either baseline. Most of that is there even without history, so it comes from the model reading the conflict with its common ancestor (diff3 markers).
+- **The differences between modes are within run-to-run noise.** The two git columns differ only in a few added commit messages, yet 10 of the 40 hunks changed outcome between them, in both directions (wrong → deferred, match → deferred, deferred → wrong). The model's own variance is as large as the gaps between columns, so this eval doesn't show that any history source beats another.
+- What history clearly does is make the reasoning explain itself: the git lookup surfaces the real commits behind each side (e.g. one side of a merge was "Reformat with black"), which a reviewer can check.
+- "Resolved but different" includes formatting-only differences (quote style, trailing commas) and real errors (6 in each git mode). That is why the CLI can gate resolutions on your tests (`--test`) and the MCP skill tells agents to run tests before committing.
 
-Matching is whitespace-insensitive, otherwise exact. The 40 hunks are all the scorable ones found walking Flask's merges newest-first, not a hand-picked set. History is limited to what existed before each merge.
+Matching is whitespace-insensitive, otherwise exact. The 40 hunks are all the scorable ones found walking Flask's merges newest-first, not a hand-picked set. History is limited to what existed before each merge. The base-history run also added one prompt line explaining base-history entries.
 
-Per-hunk tables: [git](eval/results-git.md), [similarity](eval/results-semantic.md), [none](eval/results-none.md).
+Per-hunk tables: [git](eval/results-git.md), [git since merge base](eval/results-git-shallow.md), [similarity](eval/results-semantic.md), [none](eval/results-none.md).
 
 ## Install
 
@@ -132,7 +132,7 @@ conflict hunk --> one side unchanged from base? --yes--> take the other side (no
               --> validate (parseable, no leftover markers) --> response
 ```
 
-- **Retrieval**, with a local checkout (CLI, stdio MCP with `repo_path`): `git log -L` finds the commits since the merge base that touched exactly each side's lines, then the PRs that merged them ("Merge pull request #N" or "(#N)") and the issues those link to. Without a checkout (hosted): similarity search over the index, preferring documents that touched the conflicted file.
+- **Retrieval**, with a local checkout (CLI, stdio MCP with `repo_path`): `git log -L` finds the commits since the merge base that touched exactly each side's lines, plus the older commits that made the base version of those lines what it was (why the code looked that way before either side changed it), then the PRs that merged them ("Merge pull request #N" or "(#N)") and the issues those link to. Without a checkout (hosted): similarity search over the index, preferring documents that touched the conflicted file.
 - **Free fast path**: with diff3 markers, if one side left the region exactly as it was in the common ancestor, only the other side really changed it, so Magewise takes that side without calling the model or touching the index. It fires on 2 of the 40 eval hunks (both match the maintainer); small, but free and safe.
 - **Model**: NVIDIA Nemotron (open weights) through an OpenAI-compatible API, behind one function in [magewise/llm.py](magewise/llm.py).
 - **Safety default**: anything ambiguous is classified *semantic*. Magewise proposes, the caller applies and tests.
@@ -149,6 +149,7 @@ conflict hunk --> one side unchanged from base? --yes--> take the other side (no
 ```bash
 git clone https://github.com/pallets/flask /tmp/flask
 python eval/harness.py /tmp/flask --repo pallets/flask --max-hunks 40
+python eval/harness.py /tmp/flask --repo pallets/flask --max-hunks 40 --history git-shallow   # no base history
 python eval/harness.py /tmp/flask --repo pallets/flask --max-hunks 40 --history semantic   # similarity search only
 python eval/harness.py /tmp/flask --repo pallets/flask --max-hunks 40 --history none       # ablation
 ```

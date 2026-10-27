@@ -20,6 +20,7 @@ If unsure, answer "semantic".
 {conflict}
 
 ## Repository history (PRs, commits, review comments, issues)
+Entries marked [base history] are older commits explaining why the code looked as it did before either side changed it.
 {context}
 
 First output only this JSON object:

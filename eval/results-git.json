@@ -2,127 +2,154 @@
  "5880befcd2:src/flask/app.py:0": {
   "classification": "textual-only",
   "resolution": "                response = self.handle_exception(ctx, e)\n            except:\n",
-  "reasoning": "Ours: pass the request context (ctx) into handle_exception through dispatch methods\nTheirs: drop the # noqa: B001 comment from the bare except as part of a ruff hook/noqa update\nOurs only adds the ctx argument to handle_exception while theirs only removes the noqa comment on the except line; the changes are independent and can both be kept.",
+  "reasoning": "Ours: pass the request context (ctx) into self.handle_exception in the dispatch method\nTheirs: remove the # noqa: B001 comment from the bare except per updated ruff hook/noqa configuration\nours changes the handle_exception call arguments while theirs only deletes a noqa comment on the following line; the changes are independent and can both be kept",
   "sources": [
    "commit-6a64969009",
-   "commit-3709c4a9a8"
+   "commit-3709c4a9a8",
+   "commit-b46f5942a5",
+   "commit-12c49c75fb",
+   "commit-9cd32cac32"
   ]
  },
  "97c830190f:src/flask/testing.py:0": {
   "classification": "semantic",
   "resolution": null,
-  "reasoning": "Ours: Update Flask's test client for Werkzeug >= 2.3.3: call `_update_cookies_from_response` with the new `path` argument and drop the legacy compatibility code (the `hasattr` check and `extract_wsgi` fallback) since it is no longer needed.\nTheirs: Add Werkzeug 2.3.3 compatibility while preserving backward compatibility: try the new 3-argument call, fall back to the 2-argument call on `TypeError` for Werkzeug 2.3.0\u20132.3.2, and keep the `extract_wsgi` fallback for Werkzeug < 2.3.0.\nBoth sides rewrite the same cookie-update behavior in incompatible ways\u2014ours unconditionally uses the 3-argument call and removes the fallback, while theirs keeps version-conditional fallbacks\u2014so a human must choose one approach.",
+  "reasoning": "Ours: Update for Werkzeug >=2.3.3: call _update_cookies_from_response with the new path argument and remove compatibility code for older Werkzeug versions.\nTheirs: Keep working across Werkzeug versions by trying the new 3-argument signature and falling back to the old 2-argument signature or extract_wsgi on TypeError.\nBoth sides change the same Werkzeug-version cookie-handling behavior, but ours unconditionally uses the new signature and drops older fallbacks while theirs conditionally preserves them, so the resolutions are incompatible.",
   "sources": [
    "commit-e1aedecdc6",
    "commit-3fbfbad79f",
+   "commit-04c21387db",
+   "commit-91044c4d76",
+   "commit-82c2e0366c",
    "pr-5101",
    "pr-5108",
+   "pr-5053",
+   "pr-4685",
+   "pr-4682",
    "issue-5107"
-  ]
- },
- "daca74d93a:src/flask/templating.py:0": {
-  "classification": "textual-only",
-  "resolution": "    ctx = app_ctx._get_current_object()\n    rv: dict[str, t.Any] = {\"g\": ctx.g}\n\n    if ctx.has_request:\n        rv[\"request\"] = ctx.request\n        rv[\"session\"] = ctx.session\n        # The session proxy cannot be replaced, accessing it gets\n        # RequestContext.session, which sets session.accessed.\n",
-  "reasoning": "Ours: Merge app and request context access into a single context object (ctx), reading g unconditionally and request/session only when a request context is present.\nTheirs: Add a comment documenting that accessing the session proxy retrieves RequestContext.session and marks session.accessed.\nOurs refactors how contexts are retrieved while theirs only adds a documentation comment about session access; both changes are independent and can be kept together.",
-  "sources": [
-   "commit-6a64969009",
-   "commit-c2705ffd9c",
-   "commit-c17f379390"
-  ]
- },
- "7ee9ceb71e:src/flask/app.py:0": {
-  "classification": "textual-only",
-  "resolution": "from werkzeug.utils import cached_property\n",
-  "reasoning": "Ours: Add `from werkzeug.utils import cached_property` as part of deprecating `locked_cached_property` and switching properties to `cached_property` (PR #4998).\nTheirs: Remove the `from werkzeug.urls import url_quote` import as part of replacing `werkzeug.urls` with `urllib.parse` for Werkzeug 2.3 compatibility (PR #5026).\nOurs only adds a new import line while theirs deletes the unrelated `url_quote` import line; the changes are independent and can both be applied together.",
-  "sources": [
-   "commit-4256fc6304",
-   "commit-c4b39ba2f3",
-   "pr-5026",
-   "pr-4998"
-  ]
- },
- "6a2f545bfd:src/flask/cli.py:0": {
-  "classification": "textual-only",
-  "resolution": "class CertParamType(click.ParamType[t.Any]):  # type: ignore[type-arg]\n",
-  "reasoning": "Ours: Parameterize click.ParamType with t.Any so CertParamType subclasses a generic ParamType[t.Any] (\"Any for CertParamType type\").\nTheirs: After updating dev dependencies, silence the mypy type-arg error for bare click.ParamType by adding # type: ignore[type-arg].\nOurs inserts a type argument [t.Any] while theirs only appends a type-ignore comment; the edits are independent parts of the same line and can be combined as click.ParamType[t.Any]):  # type: ignore[type-arg].",
-  "sources": [
-   "commit-36e4a824f3",
-   "commit-954f5684e4",
-   "commit-8285adf5a4"
-  ]
- },
- "7a2d5fb6df:src/flask/blueprints.py:0": {
-  "classification": "textual-only",
-  "resolution": "    @setupmethod\n    def app_errorhandler(\n        self, code: t.Union[t.Type[Exception], int]\n    ) -> t.Callable[[ft.ErrorHandlerDecorator], ft.ErrorHandlerDecorator]:\n",
-  "reasoning": "Ours: Add @setupmethod to app_errorhandler as part of consistently applying setupmethod to registration methods.\nTheirs: Reformat the method signature and refine the return type annotation for error handler typing.\nOurs only adds a decorator; theirs only changes formatting and the return-type annotation. Both changes are independent and can be combined.",
-  "sources": [
-   "commit-a406c297aa",
-   "commit-3351a8677e",
-   "pr-4579",
-   "pr-4577"
   ]
  },
  "258d68b6ff:tests/test_reqctx.py:0": {
   "classification": "semantic",
   "resolution": null,
-  "reasoning": "Ours: Remove the unicode host test and pass context through dispatch methods in the bad environ test.\nTheirs: Remove all werkzeug host tests.\nOurs keeps and modifies test_bad_environ_raises_bad_request while theirs removes it, and they also disagree on keeping test_normal_environ_completes.",
+  "reasoning": "Ours: Remove the unicode IDNA host test and update the bad environ test to pass the request context through full_dispatch_request.\nTheirs: Remove all werkzeug host tests entirely.\nOurs keeps most host tests (with one removal and one modification), while theirs deletes all of them; they make incompatible decisions about whether these tests should exist.",
   "sources": [
    "commit-91c6b3fecf",
    "commit-6a64969009",
-   "commit-a31e6b7346"
+   "commit-a31e6b7346",
+   "commit-524fd0bc8c",
+   "commit-57d628ca74",
+   "commit-0c0b31a789"
   ]
  },
- "7a2d5fb6df:src/flask/scaffold.py:1": {
+ "7ee9ceb71e:src/flask/app.py:0": {
   "classification": "textual-only",
-  "resolution": "    @setupmethod\n    def post(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
-  "reasoning": "Ours: Add @setupmethod to post() so re-registering a route/view after blueprint registration triggers a warning (PR #4577 applies setupmethod consistently).\nTheirs: Improve typing of post(): reformat the signature across multiple lines and narrow the return type from generic F to ft.RouteDecorator (PR #4579 typing work).\nOurs only adds a decorator above the method while leaving the signature unchanged; theirs only rewrites the signature and return annotation. They address independent concerns (registration warning vs. static typing) and can both be kept.",
+  "resolution": "from werkzeug.utils import cached_property\n",
+  "reasoning": "Ours: Add `from werkzeug.utils import cached_property` so properties can switch from `locked_cached_property` to `cached_property` (PR #4998).\nTheirs: Remove the `from werkzeug.urls import url_quote` line to replace `werkzeug.urls` with `urllib.parse` for Werkzeug 2.3 compatibility (PR #5026).\nOurs only adds a new import line while theirs only deletes the unrelated `url_quote` import; they affect different names and both changes can be kept together.",
   "sources": [
-   "commit-a406c297aa",
-   "commit-81be290ec8",
-   "pr-4579",
-   "pr-4577"
+   "commit-4256fc6304",
+   "commit-c4b39ba2f3",
+   "commit-92acd05d9b",
+   "pr-5026",
+   "pr-4998"
   ]
  },
- "7a2d5fb6df:src/flask/scaffold.py:2": {
+ "daca74d93a:src/flask/templating.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Merge app and request context / pass context through dispatch methods: switch to the app_ctx proxy with ctx.has_request, but still expose session in the template context.\nTheirs: Track session access: keep the old _cv_request access but drop the rv[\"session\"] assignment (replaced with a comment) because accessing the session sets session.accessed.\nOurs keeps/changes session exposure using the new ctx, while theirs removes session access to avoid marking the session as accessed; both sides decide the same session-exposure behavior incompatibly.",
+  "sources": [
+   "commit-6a64969009",
+   "commit-c2705ffd9c",
+   "commit-c17f379390",
+   "commit-44ffe6c6d6",
+   "commit-91044c4d76",
+   "commit-82c2e0366c",
+   "pr-5071",
+   "pr-4685",
+   "pr-4682"
+  ]
+ },
+ "48fe96588c:src/flask/templating.py:1": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Remove LocalStack usage by replacing _app_ctx_stack.top with current_app._get_current_object() in render_template_string, and add stream_template/stream_template_string functions.\nTheirs: Add an explicit None check and RuntimeError when render_template_string is used outside an active application context instead of producing a confusing None error.\nBoth sides modify the same context-access and missing-context error-handling lines; ours removes the _app_ctx_stack.top reference that theirs explicitly checks for None, so the changes cannot both be applied as-is.",
+  "sources": [
+   "commit-82c2e0366c",
+   "commit-46433e9807",
+   "commit-58f3536a8f",
+   "commit-025589ee76",
+   "commit-f34c028125",
+   "commit-e0712b47c6",
+   "pr-4693",
+   "pr-4682",
+   "pr-4629"
+  ]
+ },
+ "6a2f545bfd:src/flask/cli.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Parameterize click.ParamType with t.Any to satisfy the generic type requirement (commit \"Any for CertParamType type\").\nTheirs: Suppress the missing type-argument error with a # type: ignore[type-arg] comment, likely because updated dev dependencies made mypy stricter.\nBoth sides address the same missing type-parameter behavior on the same line in incompatible alternative ways\u2014one supplies t.Any, the other silences the check\u2014so a human must choose.",
+  "sources": [
+   "commit-36e4a824f3",
+   "commit-954f5684e4",
+   "commit-8285adf5a4",
+   "commit-2beedabaaf"
+  ]
+ },
+ "7a2d5fb6df:src/flask/blueprints.py:0": {
   "classification": "textual-only",
-  "resolution": "    @setupmethod\n    def put(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
-  "reasoning": "Ours: Add @setupmethod to put so registering after setup triggers a warning, consistent with route/endpoint (PR #4577).\nTheirs: Refine put's return type annotation to ft.RouteDecorator for accurate type checking and reformat the signature across multiple lines (PR #4579).\nHEAD only adds a decorator while the other branch only changes the return-type annotation and line wrapping; the changes are independent and can both be kept.",
+  "resolution": "    @setupmethod\n    def app_errorhandler(\n        self, code: t.Union[t.Type[Exception], int]\n    ) -> t.Callable[[ft.ErrorHandlerDecorator], ft.ErrorHandlerDecorator]:\n",
+  "reasoning": "Ours: Add the @setupmethod decorator to app_errorhandler so it consistently warns against modifying error handlers after blueprint registration, as part of the setupmethod behavior update.\nTheirs: Refine the return type annotation to t.Callable[[ft.ErrorHandlerDecorator], ft.ErrorHandlerDecorator] and reformat the signature across multiple lines to support error handler type checking.\nOurs only adds a runtime decorator while theirs only changes the static return type and line wrapping; they touch overlapping lines but address independent concerns, so both changes can be kept.",
   "sources": [
    "commit-a406c297aa",
-   "commit-81be290ec8",
+   "commit-3351a8677e",
+   "commit-77237093da",
+   "commit-7a08331ac0",
    "pr-4579",
    "pr-4577"
   ]
  },
  "48fe96588c:src/flask/templating.py:0": {
-  "classification": "semantic",
-  "resolution": null,
-  "reasoning": "Ours: remove direct use of `_app_ctx_stack.top` by obtaining the app via `current_app._get_current_object()` as part of removing LocalStack\nTheirs: raise a clear `RuntimeError` when `render_template` is called outside an application context by checking `ctx is None`\nBoth sides modify the same context-acquisition code: ours replaces `_app_ctx_stack.top` with `current_app`, while theirs keeps `_app_ctx_stack.top` and adds a `None` check, so the changes cannot be kept together without choosing which context mechanism to use.",
+  "classification": "textual-only",
+  "resolution": "    app = current_app._get_current_object()  # type: ignore[attr-defined]\n\n    if app is None:\n        raise RuntimeError(\n            \"This function can only be used when an application context is active.\"\n        )\n\n    template = app.jinja_env.get_or_select_template(template_name_or_list)\n    return _render(app, template, context)\n",
+  "reasoning": "Ours: Replace `_app_ctx_stack.top` with `current_app._get_current_object()` to remove usage of the deprecated LocalStack as part of migrating context management away from LocalStack.\nTheirs: Add an explicit check that an application context is active, raising a clear RuntimeError instead of an obscure None error when rendering templates outside an app context.\nOurs changes how the app object is obtained while theirs adds a validation guard; they address independent concerns and can both be retained.",
   "sources": [
    "commit-82c2e0366c",
    "commit-58f3536a8f",
+   "commit-025589ee76",
+   "commit-f34c028125",
+   "commit-0b3369355d",
    "pr-4693",
    "pr-4682"
   ]
  },
- "7a2d5fb6df:src/flask/scaffold.py:3": {
+ "7a2d5fb6df:src/flask/scaffold.py:2": {
   "classification": "textual-only",
-  "resolution": "    @setupmethod\n    def delete(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
-  "reasoning": "Ours: Add the @setupmethod decorator to delete so modifying a route after setup triggers the consistent warning/check (PR #4577, apply setupmethod consistently).\nTheirs: Improve view-function typing by expanding the signature across multiple lines and tightening the return annotation to ft.RouteDecorator (PR #4579, view function is actually type checked).\nOurs only adds a decorator while theirs only changes signature formatting and the return type annotation; they address independent concerns and both can be kept together.",
+  "resolution": "    @setupmethod\n    def put(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
+  "reasoning": "Ours: Add the @setupmethod decorator to put so re-registering after setup triggers a warning, consistent with route/endpoint (PR #4577, issue #4571).\nTheirs: Improve put's static return type (and reflow the signature) so type checkers know the wrapped view keeps its RouteDecorator signature (PR #4579, commit 81be290ec8).\nOurs only adds a runtime decorator above the def line; theirs only changes signature formatting and the return-type annotation. They address independent concerns and both changes can be kept together.",
   "sources": [
    "commit-a406c297aa",
    "commit-81be290ec8",
+   "commit-af34b8c9e7",
+   "commit-77237093da",
+   "commit-705e52684a",
+   "pr-4477",
    "pr-4579",
    "pr-4577"
   ]
  },
- "7a2d5fb6df:src/flask/scaffold.py:4": {
+ "7a2d5fb6df:src/flask/scaffold.py:1": {
   "classification": "textual-only",
-  "resolution": "    @setupmethod\n    def patch(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
-  "reasoning": "Ours: Add the @setupmethod decorator to patch so re-registering a route after setup triggers the setup-method warning, as part of applying setupmethod consistently.\nTheirs: Rewrap the patch signature across multiple lines and narrow the return type to t.Callable[[ft.RouteDecorator], ft.RouteDecorator] so the view function is actually type checked.\nOurs only inserts a decorator line above def while leaving the def line identical to base; theirs only rewrites the def signature and return annotation. The changes are independent and both can be kept together.",
+  "resolution": "    @setupmethod\n    def post(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
+  "reasoning": "Ours: Add @setupmethod decorator to post method for consistent setup checks\nTheirs: Improve type annotation for the return value and reformat the signature\nThe changes are independent: one adds a decorator for runtime checks, the other updates the return type and formatting for better type checking.",
   "sources": [
    "commit-a406c297aa",
    "commit-81be290ec8",
+   "commit-af34b8c9e7",
+   "commit-77237093da",
+   "commit-705e52684a",
+   "pr-4477",
    "pr-4579",
    "pr-4577"
   ]
@@ -130,10 +157,50 @@
  "7a2d5fb6df:src/flask/scaffold.py:0": {
   "classification": "textual-only",
   "resolution": "    @setupmethod\n    def get(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
-  "reasoning": "Ours: Add the @setupmethod decorator to get() so route registration after setup triggers a warning, as part of applying setupmethod consistently (PR #4577 / issue #4571).\nTheirs: Reformat the get() signature across multiple lines and tighten the return type to ft.RouteDecorator so view functions are properly type checked (PR #4579 / issue #4574).\nOurs only adds a decorator above the unchanged def line, while theirs only reformats the signature and updates the return annotation; the changes concern independent behavior and can both be kept.",
+  "reasoning": "Ours: Add the @setupmethod decorator to get() so route registration is guarded by setup-time checks and warns against re-registering after the app is serving (PR #4577).\nTheirs: Refine the return type annotation so type checkers know the returned decorator preserves the RouteDecorator signature, and reformat the signature across multiple lines (PR #4579).\nOurs only inserts a @setupmethod decorator line above the def while leaving the signature intact; theirs only reformats that signature and changes the return type. The changes are independent and both can be kept together.",
   "sources": [
    "commit-a406c297aa",
    "commit-81be290ec8",
+   "commit-af34b8c9e7",
+   "commit-77237093da",
+   "commit-705e52684a",
+   "pr-4477",
+   "pr-4579",
+   "pr-4577"
+  ]
+ },
+ "7a2d5fb6df:src/flask/typing.py:0": {
+  "classification": "textual-only",
+  "resolution": "\nif t.TYPE_CHECKING:  # pragma: no cover\n",
+  "reasoning": "Ours: ?\nTheirs: no change to this region\nTheirs left this region as it was in the common ancestor (ignoring whitespace), so only ours changed it. Took ours as-is; resolved without a model call.",
+  "sources": []
+ },
+ "7a2d5fb6df:src/flask/scaffold.py:3": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def delete(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
+  "reasoning": "Ours: Add the @setupmethod decorator to delete so route registration after setup triggers a warning, applying setupmethod consistently across route-registration methods.\nTheirs: Tighten the return type annotation so type checkers know the returned decorator preserves the view function signature (ft.RouteDecorator), and reformat the multi-line signature.\nOurs only adds the @setupmethod decorator while theirs only changes the return type annotation and signature formatting; the changes are independent and can both be kept.",
+  "sources": [
+   "commit-a406c297aa",
+   "commit-81be290ec8",
+   "commit-af34b8c9e7",
+   "commit-77237093da",
+   "commit-705e52684a",
+   "pr-4477",
+   "pr-4579",
+   "pr-4577"
+  ]
+ },
+ "7a2d5fb6df:src/flask/scaffold.py:4": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def patch(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
+  "reasoning": "Ours: Add @setupmethod decorator to patch so setup-after-registration warnings are applied consistently (PR #4577).\nTheirs: Improve static typing for patch by reformatting the signature and changing the return type annotation so type checkers know the wrapped view function preserves its signature (PR #4579).\nOurs only adds a runtime decorator while theirs only changes formatting and the static return-type annotation; they affect independent concerns and both changes can be kept together.",
+  "sources": [
+   "commit-a406c297aa",
+   "commit-81be290ec8",
+   "commit-af34b8c9e7",
+   "commit-77237093da",
+   "commit-705e52684a",
+   "pr-4477",
    "pr-4579",
    "pr-4577"
   ]
@@ -141,29 +208,41 @@
  "7a2d5fb6df:src/flask/scaffold.py:5": {
   "classification": "textual-only",
   "resolution": "    @setupmethod\n    def route(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
-  "reasoning": "Ours: Add the @setupmethod decorator to route so re-registering a route after setup triggers a warning (PR #4577 setupmethod behavior).\nTheirs: Refine route's typing: reformat the signature across multiple lines and narrow the return type to t.Callable[[ft.RouteDecorator], ft.RouteDecorator] so view functions are actually type checked (PR #4579).\nOurs only adds a runtime decorator line while theirs only changes the signature formatting and return-type annotation; neither alters what the other changed, so both can be kept.",
+  "reasoning": "Ours: Add the @setupmethod decorator to route so reregistering a route after registration triggers a warning (PR #4577 / issue #4571).\nTheirs: Reformat the route signature and tighten the return type so type checkers can verify the wrapped view preserves its signature (PR #4579).\nHEAD only adds a decorator line before def route, while the other branch only reformats the signature across multiple lines and changes the return annotation; both are independent and can be kept together.",
   "sources": [
    "commit-eb36135cfe",
    "commit-81be290ec8",
+   "commit-af34b8c9e7",
+   "commit-77237093da",
+   "commit-b146a13f63",
+   "pr-4477",
    "pr-4579",
    "pr-4577"
   ]
  },
- "7a2d5fb6df:src/flask/typing.py:0": {
+ "9e2e1de2fc:src/flask/blueprints.py:1": {
   "classification": "textual-only",
-  "resolution": "if t.TYPE_CHECKING:  # pragma: no cover\n",
-  "reasoning": "Ours: Append `# pragma: no cover` to the `if t.TYPE_CHECKING:` line so the type-checking import block is excluded from test coverage (commit a74e266: \"skip coverage for TYPE_CHECKING\").\nTheirs: Remove the blank line immediately before `if t.TYPE_CHECKING:`; the `if` statement itself is unchanged from the base, so this is purely whitespace/formatting.\nOurs only appends a coverage pragma comment to the if line, while theirs only deletes the preceding blank line; they are independent changes to adjacent lines and both can be kept together.",
-  "sources": [
-   "commit-a74e266474"
-  ]
- },
- "9e2e1de2fc:src/flask/blueprints.py:2": {
-  "classification": "textual-only",
-  "resolution": "    @setupmethod\n    def teardown_app_request(self, f: ft.TeardownCallable) -> ft.TeardownCallable:\n",
-  "reasoning": "Ours: Add the @setupmethod decorator to teardown_app_request to consistently enforce setup-time registration checks.\nTheirs: Reference TeardownCallable through the ft namespace alias instead of the imported name, as part of accessing flask types through a namespace alias.\nOurs only adds a decorator while theirs only changes the type annotation reference; the changes are independent and can both be kept.",
+  "resolution": "    @setupmethod\n    def before_app_request(\n        self, f: ft.BeforeRequestCallable\n    ) -> ft.BeforeRequestCallable:\n",
+  "reasoning": "Ours: Add the @setupmethod decorator to before_app_request so setup/registration is checked consistently (PR #4577).\nTheirs: Reformat the signature across multiple lines and reference BeforeRequestCallable through the ft namespace alias (PR #4603 / commit 61f62e6005).\nOurs only inserts a decorator line above the def while leaving the signature unchanged; theirs only rewrites the signature line/formatting. The changes are independent and can both be applied.",
   "sources": [
    "commit-a406c297aa",
    "commit-61f62e6005",
+   "commit-77237093da",
+   "commit-7a08331ac0",
+   "pr-4603",
+   "pr-4577"
+  ]
+ },
+ "9e2e1de2fc:src/flask/blueprints.py:0": {
+  "classification": "textual-only",
+  "resolution": "from .scaffold import setupmethod\n",
+  "reasoning": "Ours: Add `from .scaffold import setupmethod` so the setupmethod decorator can be applied consistently to blueprint registration methods (PR #4577).\nTheirs: Remove the direct `.typing` imports because Flask types are now accessed through a namespace alias instead (PR #4603).\nOurs only adds a new import while theirs deletes the unrelated typing imports; the changes touch the same import block but concern independent features and can both be kept.",
+  "sources": [
+   "commit-a406c297aa",
+   "commit-61f62e6005",
+   "commit-6a4e7e948d",
+   "commit-a960236117",
+   "commit-77237093da",
    "pr-4603",
    "pr-4577"
   ]
@@ -171,130 +250,126 @@
  "9e2e1de2fc:src/flask/blueprints.py:3": {
   "classification": "textual-only",
   "resolution": "    @setupmethod\n    def app_url_defaults(self, f: ft.URLDefaultCallable) -> ft.URLDefaultCallable:\n",
-  "reasoning": "Ours: Add the @setupmethod decorator to app_url_defaults as part of applying setupmethod consistently (PR #4577).\nTheirs: Reference URLDefaultCallable through the ft namespace alias instead of the bare name (PR #4603).\nOurs only adds a decorator while theirs only qualifies the type annotation with the ft alias; they are independent changes on overlapping lines and can both be kept.",
+  "reasoning": "Ours: Add the @setupmethod decorator to app_url_defaults so blueprint setup is checked consistently at registration time.\nTheirs: Reference URLDefaultCallable through the ft namespace alias for consistent type imports.\nOurs only adds a decorator while theirs only changes the type annotation's namespace; the changes are independent and can both be kept.",
   "sources": [
    "commit-a406c297aa",
    "commit-61f62e6005",
+   "commit-77237093da",
+   "commit-5da1fc2215",
    "pr-4603",
    "pr-4577"
-  ]
- },
- "9e2e1de2fc:src/flask/blueprints.py:0": {
-  "classification": "semantic",
-  "resolution": null,
-  "reasoning": "Ours: ?\nTheirs: ?\nModel output unparseable, needs a human: ",
-  "sources": [
-   "commit-a406c297aa",
-   "commit-61f62e6005",
-   "pr-4603",
-   "pr-4577"
-  ]
- },
- "48fe96588c:src/flask/templating.py:1": {
-  "classification": "semantic",
-  "resolution": null,
-  "reasoning": "Ours: Remove LocalStack usage by replacing _app_ctx_stack.top with current_app._get_current_object() and add stream_template/stream_template_string helpers\nTheirs: Raise a clear RuntimeError when render_template_string is called outside an application context instead of a confusing None error\nBoth sides modify the same function body to handle a missing application context; ours removes _app_ctx_stack.top entirely in favor of current_app, while theirs adds a None check on _app_ctx_stack.top, making the changes incompatible.",
-  "sources": [
-   "commit-82c2e0366c",
-   "commit-46433e9807",
-   "commit-58f3536a8f",
-   "pr-4693",
-   "pr-4682",
-   "pr-4629"
   ]
  },
  "1ce0f774c9:setup.py:0": {
   "classification": "textual-only",
   "resolution": "        \"Werkzeug >= 2.0\",\n        \"Jinja2 >= 3.0\",\n        \"itsdangerous >= 2.0\",\n        \"click >= 8.0\",\n",
-  "reasoning": "Ours: Bump the click minimum version from 7.1.2 to 8.0 (commit \"update click minimum version\").\nTheirs: Normalize version-specifier spacing by adding spaces around `>=` on the Pallets dependencies while keeping click at 7.1.2 (merge of 1.1.x into 2.0.x / set maximum versions work).\nOurs changes only the click version floor, whereas theirs changes only whitespace around the specifiers; the changes are orthogonal and can both be kept (click >= 8.0 with spaced specifiers).",
+  "reasoning": "Ours: update click minimum version to 8.0\nTheirs: add spaces around version specifiers for pallets dependencies\nOne side changes the click version constraint while the other changes formatting; both can be applied together.",
   "sources": [
    "commit-80a4e62096",
    "commit-5bd959fbec",
-   "commit-6d8b4ce9d0"
+   "commit-6d8b4ce9d0",
+   "commit-3a5532b4ed",
+   "commit-26a6cc0f94",
+   "commit-07000942da"
   ]
  },
  "ef27c1b749:setup.py:0": {
   "classification": "semantic",
   "resolution": null,
-  "reasoning": "Ours: On the 1.0.x merge, bump the minimum versions of Werkzeug, Jinja2, itsdangerous and click (and switch to double quotes) to upgrade dependencies for the release.\nTheirs: In the cleanup merge, relax Werkzeug to >=0.14 and drop its <1.0 upper bound, but deliberately keep Jinja2, itsdangerous and click at the older lower bounds with single quotes.\nBoth sides rewrite the same dependency-version lines to different values (e.g. Werkzeug >=0.15 vs >=0.14; Jinja2 raised to >=2.10.1 versus left at >=2.4), so a human must choose which requirements to keep.",
+  "reasoning": "Ours: Upgrade all dependency minimums for the 1.0.x branch (switching to double quotes) and drop the Werkzeug <1.0 upper bound.\nTheirs: Bump only the Werkzeug minimum to >=0.14 and drop its <1.0 upper bound while leaving the other dependencies unchanged, as part of cleaning up a merge.\nBoth sides modify the Werkzeug version constraint on the same overlapping lines to different values (>=0.15 vs >=0.14), so they change the same dependency requirement in incompatible ways.",
   "sources": [
    "commit-1351d0a565",
-   "commit-d92b64aa27"
+   "commit-d92b64aa27",
+   "commit-85db0135cb",
+   "commit-f6d25bbc4f",
+   "commit-3569fc2441"
   ]
  },
- "9b424e9da9:setup.py:0": {
-  "classification": "semantic",
-  "resolution": null,
-  "reasoning": "Ours: Raise minimum versions of Werkzeug and Jinja2 for the 1.0.x release\nTheirs: Lower minimum versions and pin Werkzeug <1.0 for compatibility with version 0.12\nBoth sides modify the same dependency version constraints in incompatible directions (raising vs lowering bounds), so a human must decide.",
-  "sources": [
-   "commit-1351d0a565",
-   "commit-85db0135cb"
-  ]
- },
- "9e2e1de2fc:src/flask/blueprints.py:1": {
+ "9e2e1de2fc:src/flask/blueprints.py:2": {
   "classification": "textual-only",
-  "resolution": "    @setupmethod\n    def before_app_request(\n        self, f: ft.BeforeRequestCallable\n    ) -> ft.BeforeRequestCallable:\n",
-  "reasoning": "Ours: Add the @setupmethod decorator to before_app_request so re-registration after blueprint registration is consistently warned on (PR #4577, apply setupmethod consistently).\nTheirs: Rewrite the signature across multiple lines and reference the callable type through the ft namespace alias as part of accessing flask types through a namespace alias (PR #4603).\nOurs only adds a decorator while theirs only changes the annotation namespace and line wrapping; the changes are independent and both can be kept.",
+  "resolution": "    @setupmethod\n    def teardown_app_request(self, f: ft.TeardownCallable) -> ft.TeardownCallable:\n",
+  "reasoning": "Ours: Add the @setupmethod decorator to teardown_app_request so setup-time registration checks are applied consistently.\nTheirs: Change the TeardownCallable annotations to use the ft namespace alias for accessing Flask types.\nOurs only adds a decorator on the line above the signature while theirs only changes the type annotation namespace; the changes are independent and can both be kept.",
   "sources": [
    "commit-a406c297aa",
    "commit-61f62e6005",
+   "commit-77237093da",
+   "commit-7e6c70a133",
    "pr-4603",
-   "pr-4577"
-  ]
- },
- "9e2e1de2fc:src/flask/scaffold.py:0": {
-  "classification": "textual-only",
-  "resolution": "if t.TYPE_CHECKING:  # pragma: no cover\n    from .wrappers import Response\n",
-  "reasoning": "Ours: Add `# pragma: no cover` to the TYPE_CHECKING block to skip coverage, and reorder the imports so `ErrorHandlerCallable` comes before `Response` (related to setupmethod/PR #4577 changes).\nTheirs: Remove the `from .typing import ErrorHandlerCallable` import from the TYPE_CHECKING block, leaving only the `Response` import.\nOurs only adds a coverage pragma and reorders imports; theirs only deletes the `ErrorHandlerCallable` import. The changes are independent and can both be kept (keep the pragma, drop the typing import).",
-  "sources": [
-   "commit-eb36135cfe",
-   "commit-a74e266474",
    "pr-4577"
   ]
  },
  "7fdd0df6ec:docs/conf.py:0": {
   "classification": "textual-only",
   "resolution": "import packaging.version\n",
-  "reasoning": "Ours: Preserve the existing top-level `import packaging` (the HEAD side matches the base on the import line; only the trailing blank line is dropped).\nTheirs: Narrow the import to `packaging.version` as part of updating the docs for the new theme (commit 4ed20657c6), so version utilities are available.\nOnly the theirs side actually changes the import semantics; ours is identical to the base aside from whitespace. The changes are compatible, and importing `packaging.version` also makes `packaging` available, so both can be kept.",
-  "sources": [
-   "commit-4ed20657c6"
-  ]
+  "reasoning": "Ours: no change to this region\nTheirs: ?\nOurs left this region as it was in the common ancestor (ignoring whitespace), so only theirs changed it. Took theirs as-is; resolved without a model call.",
+  "sources": []
  },
  "563ef469f7:docs/conf.py:0": {
-  "classification": "semantic",
-  "resolution": null,
-  "reasoning": "Ours: Clean up conf.py for the pallets-sphinx-themes migration: drop Python 2/unused boilerplate (coding cookie, future print_function, inspect, re), split the theme import into separate lines, and import `packaging` for the docs build.\nTheirs: Update conf.py for the new theme with the same boilerplate removal and split theme import, but import `packaging.version` specifically so the version submodule is available.\nBoth sides made the same cleanup but set the packaging import to different targets (`import packaging` vs `import packaging.version`), which load different submodules and can change whether `packaging.version` is usable downstream, so a human must choose.",
+  "classification": "textual-only",
+  "resolution": "import packaging.version\n\nfrom pallets_sphinx_themes import get_version\nfrom pallets_sphinx_themes import ProjectLink\n",
+  "reasoning": "Ours: Migrating docs config to pallets-sphinx-themes: removed the Python-2 coding cookie/__future__ import and unused inspect/re imports, split the combined theme import into two lines, and added `import packaging` for theme/version handling.\nTheirs: Same theme migration: removed the identical boilerplate and unused imports, split the theme import the same way, and added `import packaging.version` for version parsing.\nBoth sides make the same removals and identical import split; they only differ in packaging import specificity (`import packaging` vs `import packaging.version`), and `import packaging.version` subsumes `import packaging`, so both changes can be kept.",
   "sources": [
    "commit-2a8ebc4411",
    "commit-28b35c55a1",
    "commit-8b567fea23",
    "commit-49a38ed999",
    "commit-c3dd7b8e4c",
-   "commit-4ed20657c6"
+   "commit-4ed20657c6",
+   "commit-679bf0014f",
+   "commit-1928f28a68",
+   "commit-317d60307d"
+  ]
+ },
+ "7d2ba3e1fc:src/flask/json/__init__.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Rework the JSON docstring: reword the ``app`` parameter to describe using this app's config instead of the active context/defaults, retarget ``kwargs`` to ``json.dump``, and add a ``versionchanged:: 2.0`` note that ``encoding`` is deprecated (data must be a string or UTF-8 bytes).\nTheirs: Fix a documentation typo in the ``loads`` function: the ``kwargs`` parameter wrongly pointed to :func:`json.dumps` and should point to :func:`json.loads`; the ``app`` description is left identical to the base.\nBoth sides rewrite the same overlapping ``:param kwargs`` doc line from the base to different targets \u2014 ``json.dump`` versus ``json.loads`` \u2014 so a single docstring cannot keep both; a human must choose and repair the broken ``:func:` role.",
+  "sources": [
+   "commit-756902cca1",
+   "commit-aff21fd8bc",
+   "commit-a4f0f19796",
+   "commit-05c6502cbd",
+   "commit-b146d8277a"
+  ]
+ },
+ "9b424e9da9:setup.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Bump minimum Werkzeug and Jinja2 versions while merging the 1.0.x branch.\nTheirs: Relax dependency minimums and cap Werkzeug below 1.0 for compatibility with the 0.12 release branch.\nBoth sides edit the same dependency version constraints in opposite directions\u2014raising minimums versus lowering them and adding an upper bound\u2014so a human must choose the final requirements.",
+  "sources": [
+   "commit-1351d0a565",
+   "commit-85db0135cb",
+   "commit-24498afed5",
+   "commit-af32ea0b94",
+   "commit-65b22926f7"
   ]
  },
  "b05a685a03:examples/tutorial/tests/test_db.py:0": {
   "classification": "textual-only",
   "resolution": "    assert \"closed\" in str(e.value)\n",
-  "reasoning": "Ours: Black reformat: changed the string literal quotes from single to double with no behavior change.\nTheirs: Adapt to pytest 5.x ExceptionInfo: assert on str(e.value) instead of str(e) to access the wrapped exception.\nThe quote-style change is independent of the e -> e.value change, so both can be combined into `assert \"closed\" in str(e.value)`.",
+  "reasoning": "Ours: Reformat string quotes with Black (single to double quotes)\nTheirs: Adapt to pytest 5.x by accessing `e.value` instead of `e` on the exception info\nOurs only normalizes quote style while theirs only changes the exception attribute access; both are independent and can be combined into `assert \"closed\" in str(e.value)`.",
   "sources": [
    "commit-025589ee76",
-   "commit-a5ecdfa7a5"
+   "commit-a5ecdfa7a5",
+   "commit-c3dd7b8e4c"
   ]
  },
  "b05a685a03:tests/test_helpers.py:0": {
   "classification": "textual-only",
   "resolution": "        assert \"Unable to infer MIME-type\" in str(excinfo.value)\n        assert \"no filename is available\" in str(excinfo.value)\n",
-  "reasoning": "Ours: Reformat the assertions with Black, changing single-quoted strings to double-quoted strings\nTheirs: Adapt to pytest 5.x by accessing excinfo.value instead of excinfo in str()\nOurs only changes quote style while theirs only changes excinfo to excinfo.value; the changes are independent and can both be kept.",
+  "reasoning": "Ours: Reformat assertions with Black, changing single quotes to double quotes with no behavioral change.\nTheirs: Adapt tests to pytest 5.x by reading excinfo.value instead of excinfo, since str(ExcInfo) repr no longer exposes the exception message directly.\nOurs only changes quote style while theirs changes excinfo to excinfo.value; the changes are independent and both can be kept.",
   "sources": [
    "commit-025589ee76",
-   "commit-a5ecdfa7a5"
+   "commit-a5ecdfa7a5",
+   "commit-5b0b9717da",
+   "commit-a30951ec28",
+   "commit-92ce20eeac"
   ]
  },
- "2844fdb82e:src/flask/cli.py:0": {
-  "classification": "textual-only",
-  "resolution": "                fg=\"yellow\", err=True)\n        return\n",
-  "reasoning": "Ours: Reformat with black: change fg='yellow' to fg=\"yellow\", add a trailing comma, and move the closing parenthesis to its own line; formatting only, no behavior change.\nTheirs: Add the err=True argument to the call so output goes to stderr instead of stdout.\nOurs only reformats (quotes and whitespace via black) with no behavior change, while theirs independently adds the err=True argument; both changes can be kept together.",
+ "afd6250bab:src/flask/helpers.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Reformat with Black: switch to double quotes and re-wrap the unicodedata.normalize(...).encode(...) call; runtime behavior unchanged.\nTheirs: Add safe=b\\\nOurs only changes formatting (quotes/line wrapping) with identical runtime behavior, while theirs adds safe=b\\ (No clean merged code was produced, so a human must decide.)",
   "sources": [
    "commit-025589ee76"
   ]
@@ -302,69 +377,69 @@
  "afd6250bab:tests/test_helpers.py:0": {
   "classification": "textual-only",
   "resolution": "    @pytest.mark.usefixtures(\"req_ctx\")\n    @pytest.mark.parametrize(\n        (\"filename\", \"ascii\", \"utf8\"),\n        (\n            (\"index.html\", \"index.html\", False),\n            (\n                u\"\u00d1and\u00fa\uff0fping\u00fcino.txt\",\n                '\"Nandu/pinguino.txt\"',\n                \"%C3%91and%C3%BA%EF%BC%8Fping%C3%BCino.txt\",\n            ),\n            (u\"V\u00f6gel.txt\", \"Vogel.txt\", \"V%C3%B6gel.txt\"),\n            # Native string not marked as Unicode on Python 2\n            (\"t\u00e9st.txt\", \"test.txt\", \"t%C3%A9st.txt\"),\n            # \":/\" are not safe in filename* value\n            (u\"\u0442\u0435:/\u0441\u0442\", '\":/\"', \"%D1%82%D0%B5%3A%2F%D1%81%D1%82\"),\n        ),\n    )\n",
-  "reasoning": "Ours: Reformat the parametrize block with black (double quotes and multi-line layout).\nTheirs: Add a new test case for UTF-8 filenames containing \":/\" to ensure they are quoted.\nOurs changes only formatting; theirs adds a new parameter. The changes are independent and can be combined.",
+  "reasoning": "Ours: Reformat the existing test cases with Black (style only; no test data changed)\nTheirs: Add a test case verifying that send_file quotes \":/\" in a UTF-8 filename\nOurs only reformats overlapping lines with Black while theirs adds a new, independent test case; both changes can be kept together.",
   "sources": [
    "commit-025589ee76",
-   "commit-54cbb4e642"
+   "commit-54cbb4e642",
+   "commit-40118e785f",
+   "commit-b51ab3ff2c",
+   "commit-5b0b9717da"
   ]
  },
- "afd6250bab:src/flask/helpers.py:0": {
-  "classification": "textual-only",
-  "resolution": "                \"filename\": unicodedata.normalize(\"NFKD\", attachment_filename).encode(\n                    \"ascii\", \"ignore\"\n                ),\n                \"filename*\": \"UTF-8''%s\" % url_quote(attachment_filename, safe=b\"\"),\n",
-  "reasoning": "Ours: Reformat the helpers.py block with Black (switch to double quotes and wrap the normalize/encode call); no behavioral change.\nTheirs: Add safe=b\"\" to url_quote when building the filename* header so the quoted filename uses an empty safe set.\nHEAD's change is purely Black reformatting while the other branch independently adds a url_quote parameter; both can be applied together.",
-  "sources": [
-   "commit-025589ee76"
-  ]
- },
- "05a4e15ee4:flask/json/__init__.py:0": {
+ "9e2e1de2fc:src/flask/scaffold.py:0": {
   "classification": "semantic",
   "resolution": null,
-  "reasoning": "Ours: Reformat with Black: switch to double quotes, collapse the conditional onto one line, and add a trailing comma; no behavioral change.\nTheirs: Use `app.json_encoder` directly instead of `current_app.json_encoder` so the test client JSON does not require a pushed app context.\nBoth sides put the conditional on one line, but they disagree on the encoder source: ours keeps `current_app.json_encoder` while theirs changes it to `app.json_encoder`, which changes which encoder is used and cannot be merged automatically.",
+  "reasoning": "Ours: ?\nTheirs: ?\nModel output unparseable, needs a human: ",
+  "sources": [
+   "commit-eb36135cfe",
+   "commit-a74e266474",
+   "commit-6a4e7e948d",
+   "commit-77237093da",
+   "pr-4577"
+  ]
+ },
+ "05a4e15ee4:flask/cli.py:0": {
+  "classification": "textual-only",
+  "resolution": "            \"   WARNING: This is a development server. \"\n            \"Do not use it in a production deployment.\",\n            fg=\"red\",\n        )\n        click.secho(\"   Use a production WSGI server instead.\", dim=True)\n",
+  "reasoning": "Ours: Reformat the click.secho call with Black (double quotes, each argument on its own line) while keeping the same warning text.\nTheirs: Reword the development-server warning for readability to 'This is a development server. Do not use it in a production deployment.'.\nOurs changes only formatting/style with identical message text; theirs changes the message wording. The changes are independent and can both be kept by applying Black formatting to the new wording.",
   "sources": [
    "commit-025589ee76",
-   "commit-a4f0f19796"
+   "commit-e2f4b53396",
+   "commit-3738f7ff99"
+  ]
+ },
+ "2844fdb82e:src/flask/cli.py:0": {
+  "classification": "textual-only",
+  "resolution": "                fg=\"yellow\", err=True)\n        return\n",
+  "reasoning": "Ours: Reformat with black: change the single-quoted 'yellow' to double-quoted \"yellow\" and use a trailing-comma style.\nTheirs: Add err=True to the call so the output is written to stderr instead of stdout.\nOurs only changes quote style/formatting while theirs independently adds a parameter; both changes can be combined into fg=\"yellow\", err=True.",
+  "sources": [
+   "commit-025589ee76"
   ]
  },
  "05a4e15ee4:flask/json/__init__.py:1": {
   "classification": "textual-only",
   "resolution": "        if not app.config[\"JSON_AS_ASCII\"]:\n            kwargs.setdefault(\"ensure_ascii\", False)\n",
-  "reasoning": "Ours: Reformat with Black: change single-quoted strings to double-quoted strings, with no behavior change.\nTheirs: Use app.config instead of current_app.config so the test client JSON path does not push an app context.\nOurs only changes quote style; theirs changes current_app to app, so both changes are independent and can be combined.",
+  "reasoning": "Ours: Reformat string literals with black (single quotes to double quotes), keeping current_app.config\nTheirs: Use app.config instead of current_app.config so the test client JSON path does not push an app context\nOurs only changes quote style; theirs only changes current_app to app. The changes are independent and can both be kept (app.config with double quotes).",
   "sources": [
    "commit-025589ee76",
-   "commit-a4f0f19796"
+   "commit-a4f0f19796",
+   "commit-8339cb3508"
   ]
  },
  "05a4e15ee4:flask/json/__init__.py:2": {
   "classification": "textual-only",
   "resolution": "        kwargs.setdefault(\"sort_keys\", app.config[\"JSON_SORT_KEYS\"])\n",
-  "reasoning": "Ours: Reformat string quotes from single to double using black (no behavioral change).\nTheirs: Use app.config instead of current_app.config so test client JSON does not push an app context.\nOurs only changes quoting style while theirs changes current_app to app; the changes are independent and can be combined.",
+  "reasoning": "Ours: Reformat with black: changed single quotes to double quotes, no semantic change.\nTheirs: Use app.config instead of current_app.config to avoid pushing an app context for the test client JSON.\nOurs only changes quote style (black reformat); theirs changes current_app to app. These are independent and can both be kept.",
   "sources": [
    "commit-025589ee76",
-   "commit-a4f0f19796"
-  ]
- },
- "29111a3259:tests/test_reqctx.py:0": {
-  "classification": "textual-only",
-  "resolution": "    # suppress Werkzeug 0.15 warning about name mismatch\n    with pytest.warns(None):\n        with app.test_request_context(\n            \"/\", environ_overrides={\"HTTP_HOST\": \"localhost\"}\n        ):\n",
-  "reasoning": "Ours: Reformat the test_request_context call with black (multi-line, double quotes); no behavioral change.\nTheirs: Suppress Werkzeug 0.15 server-name mismatch warnings by wrapping the block in pytest.warns(None) and adding a comment, replacing the bare try:.\nOurs only reformats the same call; theirs changes warning handling around it. The edits are independent and can be combined.",
-  "sources": [
-   "commit-025589ee76",
-   "commit-dbd4520ccb"
-  ]
- },
- "05a4e15ee4:flask/json/__init__.py:3": {
-  "classification": "textual-only",
-  "resolution": "            \"cls\",\n            bp.json_decoder if bp and bp.json_decoder else app.json_decoder,\n",
-  "reasoning": "Ours: Reformat with black: normalize 'cls' to double quotes and collapse the conditional expression onto one line with a trailing comma; no behavioral change.\nTheirs: Use app.json_decoder directly instead of current_app.json_decoder so test-client JSON handling avoids pushing an app context.\nOurs only changes quoting/line wrapping on the same lines (black), while theirs substitutes app for current_app; the changes are independent and can both be kept.",
-  "sources": [
-   "commit-025589ee76",
-   "commit-a4f0f19796"
+   "commit-a4f0f19796",
+   "commit-77d293cf49"
   ]
  },
  "05a4e15ee4:flask/json/__init__.py:4": {
   "classification": "textual-only",
   "resolution": "    _dump_arg_defaults(kwargs, app=app)\n    encoding = kwargs.pop(\"encoding\", None)\n",
-  "reasoning": "Ours: Reformat with black, changing the quote style around \"encoding\" from single to double quotes with no behavioral change.\nTheirs: Pass app=app to _dump_arg_defaults so the test client JSON path does not push an app context.\nOurs only alters quote style on the encoding line while theirs only adds the app parameter on the _dump_arg_defaults line; the changes are independent and both can be kept.",
+  "reasoning": "Ours: Reformat the string literal from single to double quotes to match Black style (no behavior change).\nTheirs: Pass the app to _dump_arg_defaults so the test client JSON path avoids pushing an app context.\nOurs only changes quote style on the encoding line while theirs only adds the app=app argument on the previous line; the changes are independent and both can be kept.",
   "sources": [
    "commit-025589ee76",
    "commit-a4f0f19796"
@@ -373,28 +448,46 @@
  "05a4e15ee4:flask/json/__init__.py:5": {
   "classification": "textual-only",
   "resolution": "    _dump_arg_defaults(kwargs, app=app)\n    encoding = kwargs.pop(\"encoding\", None)\n",
-  "reasoning": "Ours: Reformat the file with Black, changing the quote style around \"encoding\" from single to double quotes.\nTheirs: Pass app=app into _dump_arg_defaults so the test client JSON path does not push an app context.\nOurs only changes quote style on the encoding line while theirs adds the app=app argument to _dump_arg_defaults; the changes are independent and both can be kept.",
+  "reasoning": "Ours: Reformat with Black, changing the quotes around \"encoding\" from single to double quotes.\nTheirs: Pass app=app into _dump_arg_defaults so the test client JSON path avoids pushing an app context.\nOurs only changes quote style on the encoding line while theirs only adds the app=app argument on the previous line; both changes are independent and can be kept together.",
   "sources": [
    "commit-025589ee76",
    "commit-a4f0f19796"
   ]
  },
- "05a4e15ee4:flask/cli.py:0": {
+ "05a4e15ee4:flask/json/__init__.py:3": {
+  "classification": "textual-only",
+  "resolution": "            \"cls\",\n            bp.json_decoder if bp and bp.json_decoder else app.json_decoder,\n",
+  "reasoning": "Ours: Reformat the conditional expression with Black: switch to double quotes, collapse to one line, and add a trailing comma; no behavioral change.\nTheirs: Use the local `app` json decoder instead of `current_app.json_decoder` so the test client does not require a pushed app context.\nOurs only reformats the same expression (Black style) while theirs changes which object provides the decoder; the changes are independent and can be combined by applying Black formatting to their `app.json_decoder` version.",
+  "sources": [
+   "commit-025589ee76",
+   "commit-a4f0f19796",
+   "commit-46f83665ef",
+   "commit-4305ebdf66",
+   "commit-501b8590dd"
+  ]
+ },
+ "05a4e15ee4:flask/json/__init__.py:0": {
+  "classification": "textual-only",
+  "resolution": "            \"cls\",\n            bp.json_encoder if bp and bp.json_encoder else app.json_encoder,\n",
+  "reasoning": "Ours: Reformat the entry with Black: switch to double quotes, collapse the conditional onto one line, and add a trailing comma; no behavior change.\nTheirs: Use app.json_encoder instead of current_app.json_encoder so test-client JSON does not push an app context, and collapse to one line.\nOurs is purely a Black reformatting (quotes, line wrapping, trailing comma) with no behavior change, while theirs only substitutes app.json_encoder for current_app.json_encoder plus the same kind of line collapsing; the changes are independent and can be combined.",
+  "sources": [
+   "commit-025589ee76",
+   "commit-a4f0f19796",
+   "commit-46f83665ef",
+   "commit-4305ebdf66",
+   "commit-501b8590dd"
+  ]
+ },
+ "29111a3259:tests/test_reqctx.py:0": {
   "classification": "semantic",
   "resolution": null,
   "reasoning": "Ours: ?\nTheirs: ?\nModel output unparseable, needs a human: ",
   "sources": [
    "commit-025589ee76",
-   "commit-e2f4b53396"
-  ]
- },
- "7d2ba3e1fc:src/flask/json/__init__.py:0": {
-  "classification": "semantic",
-  "resolution": null,
-  "reasoning": "Ours: Rewrite the :param app: description, change the kwargs target to json.dump, and add a versionchanged note about encoding deprecation.\nTheirs: Fix the loads function's :param kwargs description so it references json.loads instead of json.dumps.\nBoth sides rewrite the same :param kwargs line to name a different function (json.dump vs json.loads), which is incompatible for a single parameter description and requires a human choice.",
-  "sources": [
-   "commit-756902cca1",
-   "commit-aff21fd8bc"
+   "commit-dbd4520ccb",
+   "commit-af41dbe0c4",
+   "commit-5da2c00419",
+   "commit-6caaa8a527"
   ]
  }
 }

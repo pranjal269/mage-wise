@@ -99,7 +99,7 @@ def collect(repo_dir: str, max_hunks: int) -> list[dict]:
                 ours, base, theirs = parse_conflict(h)
                 p1, p2 = git(repo_dir, "rev-list", "--parents", "-n1", sha).split()[1:3]
                 cases.append({
-                    "commits": githistory.side_commits(repo_dir, p1, p2, f, ours, theirs),
+                    "commits": githistory.side_commits(repo_dir, p1, p2, f, ours, theirs, base),
                     "id": f"{sha[:10]}:{f}:{i}",
                     "merge": sha,
                     "file": f,
@@ -119,8 +119,11 @@ def collect(repo_dir: str, max_hunks: int) -> list[dict]:
 
 def run_case(case: dict, repo: str, history: str) -> dict:
     try:
-        if history == "git":
-            out = core.resolve(repo, case["file"], case["hunk"], before=case["before"], commits=case["commits"])
+        if history in ("git", "git-shallow"):
+            commits = case["commits"]
+            if history == "git-shallow":  # the earlier behavior: only commits since the merge base
+                commits = [c for c in commits if c["side"] != "base history"]
+            out = core.resolve(repo, case["file"], case["hunk"], before=case["before"], commits=commits)
         elif history == "semantic":
             out = core.resolve(repo, case["file"], case["hunk"], before=case["before"])
         else:
@@ -160,7 +163,8 @@ def score(cases: list[dict], results: dict) -> dict:
 
 
 HISTORY_MODES = {
-    "git": "history from the commits behind each side (git log -L) and the PRs they reference",
+    "git": "history from the commits behind each side and behind the base (git log -L), and the PRs they reference",
+    "git-shallow": "history from the commits behind each side since the merge base (git log -L) and their PRs",
     "semantic": "history from similarity search over the index",
     "none": "no history (ablation)",
 }

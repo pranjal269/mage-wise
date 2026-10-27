@@ -27,8 +27,8 @@ def resolve(
         ctx = []
     else:
         if commits is None and repo_path and (refs := githistory.merge_refs(repo_path)):
-            ours, _, theirs = retriever.parse_conflict(conflict_markers)
-            commits = githistory.side_commits(repo_path, *refs, file_path, ours, theirs)
+            ours, base, theirs = retriever.parse_conflict(conflict_markers)
+            commits = githistory.side_commits(repo_path, *refs, file_path, ours, theirs, base)
         ctx = retriever.retrieve(repo, pr_number, file_path, conflict_markers, before, commits)
         verdict = resolver.resolve_hunk(file_path, conflict_markers, ctx)
     return {
