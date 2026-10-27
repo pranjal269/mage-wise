@@ -34,6 +34,15 @@ What this shows, and doesn't:
 - What history clearly does is make the reasoning explain itself: the git lookup surfaces the real commits behind each side (e.g. one side of a merge was "Reformat with black"), which a reviewer can check.
 - "Resolved but different" includes formatting-only differences (quote style, trailing commas) and real errors (6 in each git mode). That is why the CLI can gate resolutions on your tests (`--test`) and the MCP skill tells agents to run tests before committing.
 
+**Model comparison** (same 40 hunks, git history with base history):
+
+| | Resolved automatically | Identical to the maintainer | Resolved but different | Deferred | Speed per call |
+|---|---|---|---|---|---|
+| Groq `gpt-oss-120b` (default) | 19 | 15 (79% of resolved) | 4 | 21 | 1-5 s |
+| NVIDIA Nemotron | 29 | 21 (72%) | 6 | 11 | 8-140 s |
+
+Groq is more cautious: it hands more hunks to a human but is wrong less often, and it is much faster. Both get the demo conflicts right. Per-hunk table: [groq](eval/results-git-groq.md).
+
 Matching is whitespace-insensitive, otherwise exact. The 40 hunks are all the scorable ones found walking Flask's merges newest-first, not a hand-picked set. History is limited to what existed before each merge. The base-history run also added one prompt line explaining base-history entries.
 
 Per-hunk tables: [git](eval/results-git.md), [git since merge base](eval/results-git-shallow.md), [similarity](eval/results-semantic.md), [none](eval/results-none.md).
@@ -44,7 +53,7 @@ Per-hunk tables: [git](eval/results-git.md), [git since merge base](eval/results
 pip install git+https://github.com/pranjal269/mage-wise    # or, from a clone: pip install -e .
 ```
 
-Set `GITHUB_TOKEN` (read access) and `NVIDIA_API_KEY` (open-weights Nemotron via build.nvidia.com; any OpenAI-compatible endpoint works with `LLM_BASE_URL` and `LLM_MODEL`). See [.env.example](.env.example).
+Set `GITHUB_TOKEN` (read access) and at least one model key: `GROQ_API_KEY` (console.groq.com), `NVIDIA_API_KEY` (build.nvidia.com) or `TOGETHER_API_KEY`. All serve open-weights models through OpenAI-compatible APIs. With several keys, Magewise falls back to the next provider when one errors, times out or rate-limits; `LLM_PROVIDERS=groq,nvidia` sets the order, and any other OpenAI-compatible endpoint works via `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL`. See [.env.example](.env.example).
 
 Index a repo's history once (a few minutes for 300 PRs):
 
@@ -69,20 +78,20 @@ Local (stdio):
   "mcpServers": {
     "magewise": {
       "command": "magewise-mcp",
-      "env": { "GITHUB_TOKEN": "...", "NVIDIA_API_KEY": "..." }
+      "env": { "GITHUB_TOKEN": "...", "GROQ_API_KEY": "...", "NVIDIA_API_KEY": "..." }
     }
   }
 }
 ```
 
-**Claude Code:** this repo ships a project-scoped [.mcp.json](.mcp.json). After `pip install`, open the repo in `claude` with `GITHUB_TOKEN` and `NVIDIA_API_KEY` set in your shell, approve the `magewise` server when prompted, and the tools are available.
+**Claude Code:** this repo ships a project-scoped [.mcp.json](.mcp.json). After `pip install`, open the repo in `claude` with `GITHUB_TOKEN` and `GROQ_API_KEY` (or `NVIDIA_API_KEY`) set in your shell, approve the `magewise` server when prompted, and the tools are available.
 
 Hosted (streamable HTTP at `/mcp`, bearer-token auth required on any non-local interface):
 
 ```bash
 MAGEWISE_TOKEN=<secret> magewise-mcp --http --host 0.0.0.0 --port 8000
 # or: docker build -t magewise . && docker run -p 8000:8000 -v magewise-data:/data \
-#       -e MAGEWISE_TOKEN=... -e GITHUB_TOKEN=... -e NVIDIA_API_KEY=... magewise
+#       -e MAGEWISE_TOKEN=... -e GITHUB_TOKEN=... -e GROQ_API_KEY=... -e NVIDIA_API_KEY=... magewise
 ```
 
 Connect clients to `https://<host>/mcp` with header `Authorization: Bearer <secret>`.
@@ -134,7 +143,7 @@ conflict hunk --> one side unchanged from base? --yes--> take the other side (no
 
 - **Retrieval**, with a local checkout (CLI, stdio MCP with `repo_path`): `git log -L` finds the commits since the merge base that touched exactly each side's lines, plus the older commits that made the base version of those lines what it was (why the code looked that way before either side changed it), then the PRs that merged them ("Merge pull request #N" or "(#N)") and the issues those link to. Without a checkout (hosted): similarity search over the index, preferring documents that touched the conflicted file.
 - **Free fast path**: with diff3 markers, if one side left the region exactly as it was in the common ancestor, only the other side really changed it, so Magewise takes that side without calling the model or touching the index. It fires on 2 of the 40 eval hunks (both match the maintainer); small, but free and safe.
-- **Model**: NVIDIA Nemotron (open weights) through an OpenAI-compatible API, behind one function in [magewise/llm.py](magewise/llm.py).
+- **Model**: open-weights models through OpenAI-compatible APIs, behind one function in [magewise/llm.py](magewise/llm.py). Default order: Groq `gpt-oss-120b` (answers in seconds), then NVIDIA Nemotron if Groq errors or rate-limits (Groq's free tier allows about 8,000 tokens a minute, i.e. 1-2 hunks a minute). The response reports which model answered.
 - **Safety default**: anything ambiguous is classified *semantic*. Magewise proposes, the caller applies and tests.
 
 ## Evaluation
@@ -170,4 +179,4 @@ pytest -q tests
 - Hosted mode has no checkout, so it attributes history to each side by similarity, which is much weaker than the git-based lookup.
 - The index holds a repo's most recent PRs (300 by default); older conflicts get commit messages but not their PR discussion.
 - MCP: one hunk per call, and the calling agent applies and tests the result. CLI: `--test` rolls back the whole run on failure; it doesn't yet isolate which hunk broke the tests.
-- Hosted Nemotron latency varies from seconds to ~2 minutes per call.
+- Latency depends on the provider: Groq answers in seconds but its free tier rate-limits after 1-2 hunks a minute (the fallback takes over); NVIDIA's hosted Nemotron varies from seconds to ~2 minutes per call.

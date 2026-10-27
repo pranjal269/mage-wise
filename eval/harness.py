@@ -128,7 +128,8 @@ def run_case(case: dict, repo: str, history: str) -> dict:
             out = core.resolve(repo, case["file"], case["hunk"], before=case["before"])
         else:
             v = resolver.resolve_hunk(case["file"], case["hunk"], [])
-            out = {"classification": v["label"], "resolution": v["resolution"], "reasoning": v.get("reason", ""), "sources": []}
+            out = {"classification": v["label"], "resolution": v["resolution"], "reasoning": v.get("reason", ""),
+                   "sources": [], "model": v.get("model")}
     except Exception as e:  # one bad call shouldn't sink a 40-hunk run; it's recorded and retried next run
         return {"error": f"{type(e).__name__}: {e}"}
     return out
@@ -205,9 +206,10 @@ def main() -> None:
     ap.add_argument("--max-hunks", type=int, default=40)
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--history", choices=HISTORY_MODES, default="git", help="where resolution context comes from")
+    ap.add_argument("--label", default="", help="cache/report name suffix, e.g. the model (set LLM_PROVIDERS to pin it)")
     args = ap.parse_args()
     history = args.history
-    suffix = f"-{history}"
+    suffix = f"-{history}" + (f"-{args.label}" if args.label else "")
     cache_path = os.path.join(HERE, f"results{suffix}.json")
 
     cases = collect(args.clone, args.max_hunks)

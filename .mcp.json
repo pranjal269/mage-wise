@@ -4,8 +4,8 @@
       "command": "magewise-mcp",
       "env": {
         "GITHUB_TOKEN": "${GITHUB_TOKEN}",
-        "NVIDIA_API_KEY": "${NVIDIA_API_KEY}",
-        "LLM_MODEL": "${LLM_MODEL:-nvidia/nemotron-3-super-120b-a12b}"
+        "GROQ_API_KEY": "${GROQ_API_KEY:-}",
+        "NVIDIA_API_KEY": "${NVIDIA_API_KEY:-}"
       }
     }
   }

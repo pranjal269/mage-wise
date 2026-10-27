@@ -78,16 +78,18 @@ def trivial(conflict_markers: str) -> dict | None:
 def resolve_hunk(file_path: str, conflict_markers: str, ctx: list[dict]) -> dict:
     """F3+F4 in one model call: classify the hunk and, if textual-only, merge it.
 
-    Returns {"label", "reason", "ours_intent", "theirs_intent", "resolution"}. Anything we can't trust
-    (unparseable output, missing code, leftover markers) comes back as "semantic" so it is never auto-applied.
+    Returns {"label", "reason", "ours_intent", "theirs_intent", "resolution", "model"}. Anything we can't
+    trust (unparseable output, missing code, leftover markers) comes back as "semantic" so it is never auto-applied.
     """
     if verdict := trivial(conflict_markers):
-        return verdict
-    out = llm(PROMPT.format(file_path=file_path, conflict=conflict_markers, context=format_context(ctx)))
+        return {**verdict, "model": None}
+    out, model = llm(PROMPT.format(file_path=file_path, conflict=conflict_markers, context=format_context(ctx)))
     verdict, code = parse(out)
     if verdict.get("label") not in LABELS:
-        return {"label": "semantic", "reason": f"Model output unparseable, needs a human: {out[:300]}", "resolution": None}
+        return {"label": "semantic", "reason": f"Model output unparseable, needs a human: {out[:300]}",
+                "resolution": None, "model": model}
     verdict["resolution"] = None
+    verdict["model"] = model
     if verdict["label"] == "textual-only":
         if code is None or MARKER.search(code):
             verdict["label"] = "semantic"

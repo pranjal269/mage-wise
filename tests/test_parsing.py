@@ -46,13 +46,13 @@ def test_model_output_near_json_is_salvaged():
 
 def test_resolve_hunk_never_trusts_code_with_markers(monkeypatch):
     out = '{"label": "textual-only", "reason": "r"}\n```\n<<<<<<< HEAD\nx\n```'
-    monkeypatch.setattr(resolver, "llm", lambda prompt: out)
+    monkeypatch.setattr(resolver, "llm", lambda prompt: (out, "fake/model"))
     v = resolver.resolve_hunk("f.py", TWO_WAY, [])
     assert v["label"] == "semantic" and v["resolution"] is None
 
 
 def test_resolve_hunk_unparseable_is_semantic(monkeypatch):
-    monkeypatch.setattr(resolver, "llm", lambda prompt: "I am not sure.")
+    monkeypatch.setattr(resolver, "llm", lambda prompt: ("I am not sure.", "fake/model"))
     assert resolver.resolve_hunk("f.py", TWO_WAY, [])["label"] == "semantic"
 
 

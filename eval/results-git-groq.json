@@ -1,0 +1,533 @@
+{
+ "6a2f545bfd:src/flask/cli.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Make CertParamType a generic ParamType parameterized with typing.Any to provide an explicit type argument.\nTheirs: Suppress type\u2011checker complaints about missing generic arguments by adding a # type: ignore[type-arg] comment.\nBoth sides modify the same class definition line in incompatible ways\u2014one adds a generic type argument, the other adds a type\u2011ignore comment\u2014so a human must choose which approach to keep.",
+  "sources": [
+   "commit-36e4a824f3",
+   "commit-954f5684e4",
+   "commit-8285adf5a4",
+   "commit-2beedabaaf"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "258d68b6ff:tests/test_reqctx.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Keep and update the host\u2011related tests: modify test_bad_environ_raises_bad_request to pass the request context to full_dispatch_request, retain test_normal_environ_completes, and drop the IDNA Unicode host test.\nTheirs: Remove all of the host\u2011related tests from this file.\nOne side retains and modifies the tests, while the other side deletes them, resulting in incompatible changes that cannot be merged automatically.",
+  "sources": [
+   "commit-91c6b3fecf",
+   "commit-6a64969009",
+   "commit-a31e6b7346",
+   "commit-524fd0bc8c",
+   "commit-57d628ca74",
+   "commit-0c0b31a789"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "daca74d93a:src/flask/templating.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Switch to using the app_ctx proxy and its current object, always include g and conditionally add request and session when a request is present.\nTheirs: Keep using ContextVar lookups, but stop adding the session proxy to the template context, adding a comment explaining why.\nBoth sides modify the same context\u2011building logic but in incompatible ways: ours changes the mechanism and always includes session, theirs retains the original mechanism but deliberately omits session. A human must decide which behavior is correct.",
+  "sources": [
+   "commit-6a64969009",
+   "commit-c2705ffd9c",
+   "commit-c17f379390",
+   "commit-44ffe6c6d6",
+   "commit-91044c4d76",
+   "commit-82c2e0366c",
+   "pr-5071",
+   "pr-4685",
+   "pr-4682"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "5880befcd2:src/flask/app.py:0": {
+  "classification": "textual-only",
+  "resolution": "                response = self.handle_exception(ctx, e)\n            except:\n",
+  "reasoning": "Ours: Add a `ctx` argument to `handle_exception` to pass context through dispatch methods.\nTheirs: Remove the `# noqa: B001` comment to satisfy updated linting rules.\nOne side changes runtime behavior by adding an argument, the other only adjusts a lint comment; both changes can coexist.",
+  "sources": [
+   "commit-6a64969009",
+   "commit-3709c4a9a8",
+   "commit-b46f5942a5",
+   "commit-12c49c75fb",
+   "commit-9cd32cac32"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "7ee9ceb71e:src/flask/app.py:0": {
+  "classification": "textual-only",
+  "resolution": "from werkzeug.utils import cached_property\n",
+  "reasoning": "Ours: Add import of cached_property to replace deprecated locked_cached_property usage.\nTheirs: Remove werkzeug.urls import (url_quote) to replace with urllib.parse due to Werkzeug deprecation.\nOne side adds a new import while the other side removes a different import; the changes can be combined without affecting each other's behavior.",
+  "sources": [
+   "commit-4256fc6304",
+   "commit-c4b39ba2f3",
+   "commit-92acd05d9b",
+   "pr-5026",
+   "pr-4998"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "97c830190f:src/flask/testing.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Update the test client to use the new three\u2011argument signature of _update_cookies_from_response introduced in Werkzeug\u202f\u2265\u202f2.3.3 and drop the old compatibility path handling.\nTheirs: Add compatibility logic that tries the new three\u2011argument signature but falls back to the older two\u2011argument form (and the legacy cookie_jar path) for Werkzeug versions before\u202f2.3.3.\nBoth sides modify the same cookie\u2011updating behavior but in mutually exclusive ways: ours assumes the new signature only, while theirs adds runtime checks to support multiple Werkzeug versions.",
+  "sources": [
+   "commit-e1aedecdc6",
+   "commit-3fbfbad79f",
+   "commit-04c21387db",
+   "commit-91044c4d76",
+   "commit-82c2e0366c",
+   "pr-5101",
+   "pr-5108",
+   "pr-5053",
+   "pr-4685",
+   "pr-4682",
+   "issue-5107"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "48fe96588c:src/flask/templating.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Replace use of the internal _app_ctx_stack with the public current_app proxy and simplify the render flow (also changes the call to _render).\nTheirs: Add a guard that raises a clear RuntimeError when render_template is called outside an active application context, keeping the original stack\u2011based implementation.\nBoth sides modify the same region but in incompatible ways: one rewrites the rendering logic, the other adds a context\u2011absence check while preserving the original logic. The changes cannot be automatically merged.",
+  "sources": [
+   "commit-82c2e0366c",
+   "commit-58f3536a8f",
+   "commit-025589ee76",
+   "commit-f34c028125",
+   "commit-0b3369355d",
+   "pr-4693",
+   "pr-4682"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "7a2d5fb6df:src/flask/blueprints.py:0": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def app_errorhandler(\n        self, code: t.Union[t.Type[Exception], int]\n    ) -> t.Callable[[ft.ErrorHandlerDecorator], ft.ErrorHandlerDecorator]:\n",
+  "reasoning": "Ours: Add @setupmethod decorator to app_errorhandler for consistent setup\u2011method handling.\nTheirs: Make the return type of app_errorhandler more specific, typing it as Callable[[ft.ErrorHandlerDecorator], ft.ErrorHandlerDecorator].\nOne side adds a decorator while the other refines the type hint; both changes are compatible and can be kept together.",
+  "sources": [
+   "commit-a406c297aa",
+   "commit-3351a8677e",
+   "commit-77237093da",
+   "commit-7a08331ac0",
+   "pr-4579",
+   "pr-4577"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "48fe96588c:src/flask/templating.py:1": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Replace the deprecated _app_ctx_stack usage with the current_app proxy, removing direct stack access.\nTheirs: Add an explicit RuntimeError with a custom message when no application context is active, while still using the old _app_ctx_stack.top approach.\nBoth sides modify the same functional area (handling of missing app context) in incompatible ways: one changes the implementation to use a proxy, the other adds a custom error check, resulting in differing runtime behavior and error messages.",
+  "sources": [
+   "commit-82c2e0366c",
+   "commit-46433e9807",
+   "commit-58f3536a8f",
+   "commit-025589ee76",
+   "commit-f34c028125",
+   "commit-e0712b47c6",
+   "pr-4693",
+   "pr-4682",
+   "pr-4629"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "7a2d5fb6df:src/flask/scaffold.py:0": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def get(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
+  "reasoning": "Ours: Add @setupmethod decorator to the get route method for consistent setupmethod behavior and warning on re-registration.\nTheirs: Refine the type annotation of the get route method to use ft.RouteDecorator for more accurate typing.\nOne change adds a decorator (runtime behavior) while the other updates the type hint; they do not conflict and can be combined.",
+  "sources": [
+   "commit-a406c297aa",
+   "commit-81be290ec8",
+   "commit-af34b8c9e7",
+   "commit-77237093da",
+   "commit-705e52684a",
+   "pr-4477",
+   "pr-4579",
+   "pr-4577"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "7a2d5fb6df:src/flask/scaffold.py:1": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def post(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
+  "reasoning": "Ours: Add @setupmethod decorator to route registration methods for consistent setup handling.\nTheirs: Improve the type hint of the post method to reflect that it returns a RouteDecorator, enabling better type checking of view functions.\nOne change adds a decorator line, the other refines the function's type annotation; they affect different aspects and can be combined without conflict.",
+  "sources": [
+   "commit-a406c297aa",
+   "commit-81be290ec8",
+   "commit-af34b8c9e7",
+   "commit-77237093da",
+   "commit-705e52684a",
+   "pr-4477",
+   "pr-4579",
+   "pr-4577"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "7a2d5fb6df:src/flask/scaffold.py:3": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Add @setupmethod decorator to the delete route method for consistent setupmethod behavior and warning handling.\nTheirs: Update the type annotation of the delete route method to use ft.RouteDecorator for more accurate type checking of view functions.\nBoth sides modify the function definition: ours adds a decorator, theirs changes the return type annotation. The differing return type annotations are incompatible, requiring a human decision.",
+  "sources": [
+   "commit-a406c297aa",
+   "commit-81be290ec8",
+   "commit-af34b8c9e7",
+   "commit-77237093da",
+   "commit-705e52684a",
+   "pr-4477",
+   "pr-4579",
+   "pr-4577"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "7a2d5fb6df:src/flask/scaffold.py:2": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Add the @setupmethod decorator to the `put` route registration method, ensuring consistent setupmethod behavior across route decorators.\nTheirs: Refine the type signature of `put` to use a more specific `ft.RouteDecorator` return type and reformat the definition across multiple lines, improving type checking of view functions.\nBoth sides modify the same function definition: one adds a decorator, the other changes the return type annotation. These changes affect different aspects of the method's behavior and type semantics, requiring a manual decision on which changes to keep.",
+  "sources": [
+   "commit-a406c297aa",
+   "commit-81be290ec8",
+   "commit-af34b8c9e7",
+   "commit-77237093da",
+   "commit-705e52684a",
+   "pr-4477",
+   "pr-4579",
+   "pr-4577"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "7a2d5fb6df:src/flask/scaffold.py:4": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def patch(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
+  "reasoning": "Ours: Add @setupmethod decorator to the patch method so that setupmethod behavior is applied consistently.\nTheirs: Update the type signature of the patch method to use ft.RouteDecorator for more accurate type checking and reformat the definition.\nOne side adds a decorator, the other refines the type signature; the changes are independent and can be combined.",
+  "sources": [
+   "commit-a406c297aa",
+   "commit-81be290ec8",
+   "commit-af34b8c9e7",
+   "commit-77237093da",
+   "commit-705e52684a",
+   "pr-4477",
+   "pr-4579",
+   "pr-4577"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "7a2d5fb6df:src/flask/typing.py:0": {
+  "classification": "textual-only",
+  "resolution": "\nif t.TYPE_CHECKING:  # pragma: no cover\n",
+  "reasoning": "Ours: ?\nTheirs: no change to this region\nTheirs left this region as it was in the common ancestor (ignoring whitespace), so only ours changed it. Took ours as-is; resolved without a model call.",
+  "sources": [],
+  "model": null
+ },
+ "9e2e1de2fc:src/flask/blueprints.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Add a direct import of `setupmethod` from .scaffold while keeping the existing typing imports (apply setupmethod consistently).\nTheirs: Remove the direct imports of typing callables (access Flask types through a namespace alias elsewhere).\nBoth sides modify the same import block; one adds an import, the other deletes all imports, leading to incompatible changes.",
+  "sources": [
+   "commit-a406c297aa",
+   "commit-61f62e6005",
+   "commit-6a4e7e948d",
+   "commit-a960236117",
+   "commit-77237093da",
+   "pr-4603",
+   "pr-4577"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "7a2d5fb6df:src/flask/scaffold.py:5": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def route(\n        self, rule: str, **options: t.Any\n    ) -> t.Callable[[ft.RouteDecorator], ft.RouteDecorator]:\n",
+  "reasoning": "Ours: Add @setupmethod decorator to the route method so that re\u2011registration triggers a warning.\nTheirs: Update the route method's type signature to use ft.RouteDecorator and format the definition across multiple lines.\nOne side adds a decorator (runtime behavior) while the other changes only the return type annotation (typing); they can be combined without conflict.",
+  "sources": [
+   "commit-eb36135cfe",
+   "commit-81be290ec8",
+   "commit-af34b8c9e7",
+   "commit-77237093da",
+   "commit-b146a13f63",
+   "pr-4477",
+   "pr-4579",
+   "pr-4577"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "9e2e1de2fc:src/flask/blueprints.py:1": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def before_app_request(\n        self, f: ft.BeforeRequestCallable\n    ) -> ft.BeforeRequestCallable:\n",
+  "reasoning": "Ours: Add the @setupmethod decorator to the before_app_request method to enforce consistent setupmethod behavior.\nTheirs: Switch the type annotations to use the ft (flask.typing) namespace alias and format the signature across multiple lines.\nOne side adds a decorator while the other changes only the type hint and formatting; the changes are independent and can be combined.",
+  "sources": [
+   "commit-a406c297aa",
+   "commit-61f62e6005",
+   "commit-77237093da",
+   "commit-7a08331ac0",
+   "pr-4603",
+   "pr-4577"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "9e2e1de2fc:src/flask/blueprints.py:2": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def teardown_app_request(self, f: ft.TeardownCallable) -> ft.TeardownCallable:\n",
+  "reasoning": "Ours: Add the @setupmethod decorator to the Blueprint's teardown_app_request method for consistent setupmethod behavior.\nTheirs: Reference the TeardownCallable type via the ft namespace alias to align with the project's type aliasing convention.\nOne side adds a decorator while the other changes the type hint to use an alias; these changes affect different aspects and can coexist.",
+  "sources": [
+   "commit-a406c297aa",
+   "commit-61f62e6005",
+   "commit-77237093da",
+   "commit-7e6c70a133",
+   "pr-4603",
+   "pr-4577"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "9e2e1de2fc:src/flask/scaffold.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Add a pragma comment for coverage exclusion and reorder imports, keeping both ErrorHandlerCallable and Response imports.\nTheirs: Remove the ErrorHandlerCallable import, leaving only the Response import.\nOne side removes an imported name while the other side retains it (and only changes order/comments), so the changes affect the same behavior and are incompatible.",
+  "sources": [
+   "commit-eb36135cfe",
+   "commit-a74e266474",
+   "commit-6a4e7e948d",
+   "commit-77237093da",
+   "pr-4577"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "9e2e1de2fc:src/flask/blueprints.py:3": {
+  "classification": "textual-only",
+  "resolution": "    @setupmethod\n    def app_url_defaults(self, f: ft.URLDefaultCallable) -> ft.URLDefaultCallable:\n",
+  "reasoning": "Ours: Add @setupmethod decorator to app_url_defaults for consistent setupmethod handling.\nTheirs: Use the ft namespace alias for type hints, changing URLDefaultCallable to ft.URLDefaultCallable.\nOne change adds a decorator (runtime behavior) while the other updates type annotations (static typing); they are independent and can be combined.",
+  "sources": [
+   "commit-a406c297aa",
+   "commit-61f62e6005",
+   "commit-77237093da",
+   "commit-5da1fc2215",
+   "pr-4603",
+   "pr-4577"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "1ce0f774c9:setup.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Bump the minimum required Click version to >=8.0\nTheirs: Keep the existing Click minimum version (>=7.1.2) while adding spaces around the version specifiers for formatting consistency\nOne side changes the Click minimum version (semantic), the other only changes whitespace, leading to incompatible version requirements.",
+  "sources": [
+   "commit-80a4e62096",
+   "commit-5bd959fbec",
+   "commit-6d8b4ce9d0",
+   "commit-3a5532b4ed",
+   "commit-26a6cc0f94",
+   "commit-07000942da"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "ef27c1b749:setup.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Upgrade all core dependencies to newer minimum versions (Werkzeug >=0.15, Jinja2 >=2.10.1, itsdangerous >=0.24, click >=5.1) and switch to double\u2011quoted strings.\nTheirs: Relax the Werkzeug version constraint to >=0.14 while keeping the other dependencies at their older minimum versions (Jinja2 >=2.4, itsdangerous >=0.21, click >=2.0).\nBoth sides modify the same dependency line (Werkzeug) with different version constraints, leading to incompatible behavior; a choice must be made which version range to keep.",
+  "sources": [
+   "commit-1351d0a565",
+   "commit-d92b64aa27",
+   "commit-85db0135cb",
+   "commit-f6d25bbc4f",
+   "commit-3569fc2441"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "7d2ba3e1fc:src/flask/json/__init__.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Update JSON documentation, adding versionchanged note about deprecating the encoding parameter and adjusting the app parameter description for the dumping function.\nTheirs: Correct the parameter description for the loading function, fixing the kwargs description to reference json.loads.\nBoth sides modify the same documentation lines but with incompatible content (one describes the dumping function, the other the loading function), resulting in a conflict that requires a human decision.",
+  "sources": [
+   "commit-756902cca1",
+   "commit-aff21fd8bc",
+   "commit-a4f0f19796",
+   "commit-05c6502cbd",
+   "commit-b146d8277a"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "7fdd0df6ec:docs/conf.py:0": {
+  "classification": "textual-only",
+  "resolution": "import packaging.version\n",
+  "reasoning": "Ours: no change to this region\nTheirs: ?\nOurs left this region as it was in the common ancestor (ignoring whitespace), so only theirs changed it. Took theirs as-is; resolved without a model call.",
+  "sources": [],
+  "model": null
+ },
+ "9b424e9da9:setup.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Raise minimum version requirements for dependencies (Werkzeug, Jinja2) to newer releases needed for the current codebase.\nTheirs: Pin Werkzeug to a maximum version (<1.0) for compatibility with older Flask 0.12 and relax version constraints for other packages to support older environments.\nBoth sides modify the same dependency version specifiers in contradictory ways\u2014one raises minimum versions, the other lowers them and adds an upper bound\u2014so the changes are semantically incompatible.",
+  "sources": [
+   "commit-1351d0a565",
+   "commit-85db0135cb",
+   "commit-24498afed5",
+   "commit-af32ea0b94",
+   "commit-65b22926f7"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "2844fdb82e:src/flask/cli.py:0": {
+  "classification": "textual-only",
+  "resolution": "                fg=\"yellow\",\n                err=True,\n            )\n        return\n",
+  "reasoning": "Ours: Reformat the function call using Black (adjust quotes, add a trailing comma, and split the closing parenthesis onto its own line).\nTheirs: Add the argument err=True so that the output is written to stderr.\nOne side only changes code formatting, while the other adds a new argument; the changes are independent and can be combined.",
+  "sources": [
+   "commit-025589ee76"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "563ef469f7:docs/conf.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Add a generic `import packaging` (top\u2011level module) and split the pallets_sphinx_themes imports onto separate lines.\nTheirs: Add a specific `import packaging.version` (submodule) and also split the pallets_sphinx_themes imports onto separate lines.\nBoth sides modify the same import area but in incompatible ways: one imports the whole packaging package, the other imports only its `version` submodule, affecting how later code will reference packaging functionality.",
+  "sources": [
+   "commit-2a8ebc4411",
+   "commit-28b35c55a1",
+   "commit-8b567fea23",
+   "commit-49a38ed999",
+   "commit-c3dd7b8e4c",
+   "commit-4ed20657c6",
+   "commit-679bf0014f",
+   "commit-1928f28a68",
+   "commit-317d60307d"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "b05a685a03:examples/tutorial/tests/test_db.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Apply Black formatting (use double quotes) to the assertion line.\nTheirs: Adjust the assertion to check the underlying exception value (e.value) due to changes in pytest 5.x ExcInfo representation.\nOurs only changes quoting (a formatting change), while theirs changes the object being inspected, altering the test's behavior.",
+  "sources": [
+   "commit-025589ee76",
+   "commit-a5ecdfa7a5",
+   "commit-c3dd7b8e4c"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "b05a685a03:tests/test_helpers.py:0": {
+  "classification": "textual-only",
+  "resolution": "        assert \"Unable to infer MIME-type\" in str(excinfo.value)\n        assert \"no filename is available\" in str(excinfo.value)\n",
+  "reasoning": "Ours: Apply Black formatting (use double quotes for string literals)\nTheirs: Update tests for pytest 5.x by accessing the exception via excinfo.value\nOne side only changes string quoting while the other changes the attribute accessed; the changes are independent and can be combined.",
+  "sources": [
+   "commit-025589ee76",
+   "commit-a5ecdfa7a5",
+   "commit-5b0b9717da",
+   "commit-a30951ec28",
+   "commit-92ce20eeac"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "afd6250bab:src/flask/helpers.py:0": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Reformat the code with Black (style changes only, e.g., consistent quoting and line breaks).\nTheirs: Modify the URL quoting by adding a safe parameter (behavioral change).\nThe \"ours\" side only changes formatting, while the \"theirs\" side changes the function call arguments, altering runtime behavior.",
+  "sources": [
+   "commit-025589ee76"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "29111a3259:tests/test_reqctx.py:0": {
+  "classification": "textual-only",
+  "resolution": "    try:\n        # suppress Werkzeug 0.15 warning about name mismatch\n        with pytest.warns(None):\n            with app.test_request_context(\n                \"/\", environ_overrides={\"HTTP_HOST\": \"localhost\"}\n            ):\n",
+  "reasoning": "Ours: Reformat the `app.test_request_context` call to match Black's style (multi\u2011line with double quotes and spaces).\nTheirs: Add a comment and a `pytest.warns(None)` context manager to silence the Werkzeug 0.15 server\u2011name mismatch warning.\nThe changes address different concerns\u2014formatting vs warning suppression\u2014and can be combined without conflict.",
+  "sources": [
+   "commit-025589ee76",
+   "commit-dbd4520ccb",
+   "commit-af41dbe0c4",
+   "commit-5da2c00419",
+   "commit-6caaa8a527"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "05a4e15ee4:flask/cli.py:0": {
+  "classification": "textual-only",
+  "resolution": "            click.secho(\n                \"   WARNING: This is a development server. \"\n                \"Do not use it in a production deployment.\",\n                fg=\"red\",\n            )\n            click.secho(\"   Use a production WSGI server instead.\", dim=True)\n",
+  "reasoning": "Ours: Reformat the click.secho call according to Black's style (split arguments onto separate lines, use double quotes).\nTheirs: Improve the warning message text for better readability, changing its content.\nOne side only changes formatting while the other changes the message string; both changes can be combined without conflict.",
+  "sources": [
+   "commit-025589ee76",
+   "commit-e2f4b53396",
+   "commit-3738f7ff99"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "afd6250bab:tests/test_helpers.py:0": {
+  "classification": "textual-only",
+  "resolution": "    @pytest.mark.usefixtures(\"req_ctx\")\n    @pytest.mark.parametrize(\n        (\"filename\", \"ascii\", \"utf8\"),\n        (\n            (\"index.html\", \"index.html\", False),\n            (\n                u\"\u00d1and\u00fa\uff0fping\u00fcino.txt\",\n                '\"Nandu/pinguino.txt\"',\n                \"%C3%91and%C3%BA%EF%BC%8Fping%C3%BCino.txt\",\n            ),\n            (u\"V\u00f6gel.txt\", \"Vogel.txt\", \"V%C3%B6gel.txt\"),\n            # Native string not marked as Unicode on Python 2\n            (\"t\u00e9st.txt\", \"test.txt\", \"t%C3%A9st.txt\"),\n            # \":/\" are not safe in filename* value\n            (u\"\u0442\u0435:/\u0441\u0442\", '\":/\"', \"%D1%82%D0%B5%3A%2F%D1%81%D1%82\"),\n        ),\n    )\n",
+  "reasoning": "Ours: Reformat the test code with Black (standardized double quotes, multiline tuple formatting) without changing test logic.\nTheirs: Add a new test case to ensure filenames containing \":/\" are correctly quoted in the filename* header.\nThe changes are independent: one side only reformats existing code, the other adds an extra test case. Both can be kept together.",
+  "sources": [
+   "commit-025589ee76",
+   "commit-54cbb4e642",
+   "commit-40118e785f",
+   "commit-b51ab3ff2c",
+   "commit-5b0b9717da"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "05a4e15ee4:flask/json/__init__.py:1": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: reformat with black, changing quotes to double quotes\nTheirs: use app instead of current_app to avoid pushing app context for test client json\nours only adjusted quoting (style), while theirs changed the variable from current_app to app, altering the runtime behavior.",
+  "sources": [
+   "commit-025589ee76",
+   "commit-a4f0f19796",
+   "commit-8339cb3508"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "05a4e15ee4:flask/json/__init__.py:2": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Reformat the line using Black's style (double quotes).\nTheirs: Change the configuration source from `current_app` to `app` to avoid pushing app context for test client JSON.\nOur side only altered quoting (a textual change), while their side changed the variable used (`app` vs `current_app`), affecting runtime behavior.",
+  "sources": [
+   "commit-025589ee76",
+   "commit-a4f0f19796",
+   "commit-77d293cf49"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "05a4e15ee4:flask/json/__init__.py:0": {
+  "classification": "textual-only",
+  "resolution": "            \"cls\",\n            bp.json_encoder if bp and bp.json_encoder else app.json_encoder,\n",
+  "reasoning": "Ours: Reformatting with Black (consistent quoting and line breaks) without changing behavior.\nTheirs: Change to use app.json_encoder instead of current_app.json_encoder to avoid pushing an app context for test client JSON.\nThe 'ours' side only altered formatting (quotes and line breaks) while the 'theirs' side changed the encoder reference, a semantic change. The formatting changes can be combined with the semantic change without conflict.",
+  "sources": [
+   "commit-025589ee76",
+   "commit-a4f0f19796",
+   "commit-46f83665ef",
+   "commit-4305ebdf66",
+   "commit-501b8590dd"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "05a4e15ee4:flask/json/__init__.py:3": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Reformat the code with Black (change quotes to double quotes and collapse to a single line).\nTheirs: Use the app's json_decoder directly instead of the current_app's decoder to avoid needing an app context during testing.\nThe two sides modify different aspects: ours only changes formatting/quoting (no behavioral impact), while theirs changes the variable used (current_app.json_decoder vs app.json_decoder), which alters runtime behavior.",
+  "sources": [
+   "commit-025589ee76",
+   "commit-a4f0f19796",
+   "commit-46f83665ef",
+   "commit-4305ebdf66",
+   "commit-501b8590dd"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "05a4e15ee4:flask/json/__init__.py:4": {
+  "classification": "textual-only",
+  "resolution": "    _dump_arg_defaults(kwargs, app=app)\n    encoding = kwargs.pop(\"encoding\", None)\n",
+  "reasoning": "Ours: reformat with black (use double quotes for string literals)\nTheirs: avoid pushing app context for test client json (pass the app to _dump_arg_defaults)\none side only changes quoting style, the other adds a new argument; the changes are compatible and can be combined",
+  "sources": [
+   "commit-025589ee76",
+   "commit-a4f0f19796"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "05a4e15ee4:flask/json/__init__.py:5": {
+  "classification": "semantic",
+  "resolution": null,
+  "reasoning": "Ours: Apply Black formatting (change string quoting to double quotes)\nTheirs: Modify JSON dump to pass the current app context (add app=app argument)\nThe 'theirs' change adds a functional argument altering behavior, while 'ours' only changes quoting style; these changes are not independent and require a human decision.",
+  "sources": [
+   "commit-025589ee76",
+   "commit-a4f0f19796"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ }
+}

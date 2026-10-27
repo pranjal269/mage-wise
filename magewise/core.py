@@ -40,4 +40,5 @@ def resolve(
             f"{verdict.get('reason', '')}"
         ),
         "sources": [h["id"] for h in ctx],
+        "model": verdict.get("model"),  # "provider/model" that answered; None when no model was needed
     }
