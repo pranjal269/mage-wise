@@ -62,7 +62,7 @@ Per-hunk tables: [git](eval/results-git.md), [git since merge base](eval/results
 pip install git+https://github.com/pranjal269/mage-wise    # or, from a clone: pip install -e .
 ```
 
-Set `GITHUB_TOKEN` (read access) and at least one model key: `GROQ_API_KEY` (console.groq.com), `NVIDIA_API_KEY` (build.nvidia.com) or `TOGETHER_API_KEY`. All serve open-weights models through OpenAI-compatible APIs. With several keys, Magewise falls back to the next provider when one errors, times out or rate-limits; `LLM_PROVIDERS=groq,nvidia` sets the order, and any other OpenAI-compatible endpoint works via `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL`. See [.env.example](.env.example).
+Set `GITHUB_TOKEN` (read access) and at least one model key: `GROQ_API_KEY` (console.groq.com), `NVIDIA_API_KEY` (build.nvidia.com) or `TOGETHER_API_KEY`. All serve open-weights models through OpenAI-compatible APIs. `GEMINI_API_KEY` (aistudio.google.com) adds Google's `gemini-3-flash-preview`, a proprietary model. Default fallback order: Groq, Gemini, NVIDIA, Together. With several keys, Magewise falls back to the next provider when one errors, times out or rate-limits; `LLM_PROVIDERS=groq,nvidia` sets the order, and any other OpenAI-compatible endpoint works via `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL`. See [.env.example](.env.example).
 
 Index a repo's history once (a few minutes for 300 PRs):
 

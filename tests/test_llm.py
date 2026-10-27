@@ -7,7 +7,7 @@ import pytest
 from magewise import llm
 
 KEYS = ("NVIDIA_API_KEY", "GROQ_API_KEY", "TOGETHER_API_KEY", "LLM_PROVIDERS", "LLM_MODEL", "LLM_BASE_URL",
-        "LLM_API_KEY", "NVIDIA_MODEL", "GROQ_MODEL", "TOGETHER_MODEL")
+        "LLM_API_KEY", "NVIDIA_MODEL", "GROQ_MODEL", "TOGETHER_MODEL", "GEMINI_API_KEY", "GEMINI_MODEL")
 
 
 @pytest.fixture(autouse=True)
@@ -41,6 +41,9 @@ def test_uses_only_providers_with_keys_in_preset_order(monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "g")
     monkeypatch.setenv("NVIDIA_API_KEY", "n")
     assert [p[0] for p in llm.providers()] == ["groq", "nvidia"]
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    assert [(p[0], p[3]) for p in llm.providers()] == [
+        ("groq", "openai/gpt-oss-120b"), ("gemini", "gemini-3-flash-preview"), ("nvidia", "nvidia/nemotron-3-super-120b-a12b")]
 
 
 def test_llm_providers_sets_order_and_models_can_be_overridden(monkeypatch):

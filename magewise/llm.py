@@ -15,6 +15,8 @@ from openai import OpenAI
 # name: (base URL, API key env var, default model)
 PRESETS = {
     "groq": ("https://api.groq.com/openai/v1", "GROQ_API_KEY", "openai/gpt-oss-120b"),
+    # Proprietary, unlike the rest; second because it answers faster than NVIDIA when Groq rate-limits.
+    "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai/", "GEMINI_API_KEY", "gemini-3-flash-preview"),
     "nvidia": ("https://integrate.api.nvidia.com/v1", "NVIDIA_API_KEY", "nvidia/nemotron-3-super-120b-a12b"),
     "together": ("https://api.together.xyz/v1", "TOGETHER_API_KEY", "openai/gpt-oss-120b"),
 }
@@ -38,7 +40,8 @@ def providers() -> list[tuple[str, str, str, str]]:
         raise ValueError(f"unknown LLM_PROVIDERS {unknown}; known: {sorted(table)}")
     chosen = [(n, *table[n]) for n in (wanted or table) if table[n][1]]
     if not chosen:
-        raise RuntimeError("no model provider configured: set GROQ_API_KEY, NVIDIA_API_KEY or TOGETHER_API_KEY")
+        raise RuntimeError("no model provider configured: set GROQ_API_KEY, NVIDIA_API_KEY, TOGETHER_API_KEY "
+                           "or GEMINI_API_KEY")
     return chosen
 
 
