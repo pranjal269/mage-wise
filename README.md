@@ -11,7 +11,9 @@ Magewise does the digging. For each conflict hunk it retrieves the history behin
 
 It never writes to your repo by itself, and anything it can't trust (unparseable model output, leftover markers) is treated as *semantic*.
 
-Ships as an **MCP server** (stdio or streamable HTTP), a **CLI**, a **REST API**, and an **Alan skill**.
+Before any of that, a **deterministic line-level merge** settles about 3 in 10 real conflicts for free (no model, no index, no GitHub), matching the maintainer 93% of the time.
+
+Ships as an **MCP server** (stdio or streamable HTTP), a **CLI**, a **REST API**, and an **agent skill** for Claude Code and Alan.
 
 ## Results
 
@@ -113,7 +115,7 @@ Tools:
 | `resolve_pr(repo, files or repo_path, pr_number?)` | Resolve **every** hunk in every conflicted file in one call, in parallel. Returns each file's new `content` (resolved hunks applied, the rest keep their markers) plus per-hunk results. |
 | `resolve_conflict(repo, file_path, conflict_markers, pr_number?, repo_path?)` | Classify one hunk; return `classification`, `resolution` (or `null`), `reasoning`, `sources`, `model`. |
 
-Calls take 30s to 2 minutes; the server sends progress notifications every 10s so clients don't time out.
+Calls take seconds (deterministic hunks are instant) to a couple of minutes; the server sends progress notifications every 10s so clients don't time out.
 
 ### CLI (humans)
 
@@ -138,24 +140,80 @@ curl -X POST localhost:8000/resolve -H "Content-Type: application/json" \
   -d '{"repo": "pallets/flask", "file_path": "src/flask/app.py", "conflict_markers": "<<<<<<< HEAD\n..."}'
 ```
 
-### Alan
+### Agent skill (Claude Code, Alan)
 
-[skills/magewise-resolve-conflict/SKILL.md](skills/magewise-resolve-conflict/SKILL.md) tells an Alan agent when to call Magewise and how to act on the answer. Import it in Alan via **Skills → Import → From GitHub** with this repo's URL, and add the MCP server under **Settings → Plugins → MCP → Add custom connector**.
+[skills/magewise-resolve-conflict/SKILL.md](skills/magewise-resolve-conflict/SKILL.md) tells an agent when to call Magewise and how to act on the answer: one `resolve_pr` call, apply only `textual-only` hunks as small edits, never hand-merge a `semantic` one, keep verification proportional, don't commit while markers remain. It needs the MCP server above to be connected.
+
+**Claude Code:** copy the skill into your skills folder, then start `claude` in the repo with the merge in progress. The skill loads automatically when a merge leaves conflict markers, or on `/magewise-resolve-conflict`.
+
+```bash
+# for one project (run in that project; commit .claude/ to share it with the team)
+mkdir -p .claude/skills && cp -r /path/to/mage-wise/skills/magewise-resolve-conflict .claude/skills/
+# or for every project on this machine
+mkdir -p ~/.claude/skills && cp -r /path/to/mage-wise/skills/magewise-resolve-conflict ~/.claude/skills/
+```
+
+```bash
+claude mcp add magewise -- magewise-mcp      # or use this repo's .mcp.json
+git merge feature-branch                     # stops on conflicts
+claude "resolve the merge conflicts"         # the skill calls resolve_pr, applies the safe hunks, reports the rest
+```
+
+On Windows (cmd): `xcopy /E /I path\to\mage-wise\skills\magewise-resolve-conflict .claude\skills\magewise-resolve-conflict`.
+
+**Alan:** import the skill via **Skills → Import → From GitHub** with this repo's URL, and add the MCP server under **Settings → Plugins → MCP → Add custom connector** (URL `https://<host>/mcp`, header `Authorization: Bearer ${API_KEY}`, then enter your `MAGEWISE_TOKEN` when connecting).
 
 ## How it works
 
+Each conflict hunk goes through the cheapest step that can settle it:
+
+```mermaid
+flowchart TD
+    H["Conflict hunk<br/>(diff3: ours / base / theirs)"] --> D{"Deterministic merge<br/>sides changed different<br/>lines of the base?"}
+    D -- yes --> T1["textual-only<br/>merged hunk<br/>no model, no index, no GitHub"]
+    D -- no --> R{"Local checkout?"}
+    R -- "yes (CLI, stdio MCP)" --> G["git log -L per side<br/>+ base history<br/>+ the PRs and issues behind them"]
+    R -- "no (hosted)" --> S["Similarity search<br/>over the ChromaDB index"]
+    G --> M["One model call<br/>Groq → Gemini → NVIDIA fallback"]
+    S --> M
+    M --> V{"Parseable JSON,<br/>clean code,<br/>no leftover markers?"}
+    V -- "yes, textual-only" --> T2["textual-only<br/>merged hunk + intents + sources"]
+    V -- "semantic, or anything untrusted" --> SEM["semantic<br/>markers kept, both intents<br/>explained for a human"]
 ```
-GitHub (PRs, commits, reviews, issues) --index--> ChromaDB
-                                                     |
-conflict hunk --> sides changed different lines of base? --yes--> line-level 3-way merge (no model, no index)
-              --> retrieve history for both sides ---+
-              --> one model call: intents + label (+ merged hunk if textual-only)
-              --> validate (parseable, no leftover markers) --> response
+
+The index is built once per repo, ahead of time:
+
+```mermaid
+flowchart LR
+    GH["GitHub API<br/>merged PRs, commits,<br/>review comments, issues"] -- "magewise index" --> E["Local embeddings<br/>(all-MiniLM, ONNX)"] --> C[("ChromaDB")]
+```
+
+A whole merge from an agent's side: one call, then small edits.
+
+```mermaid
+sequenceDiagram
+    participant A as Agent (Claude Code / Alan)
+    participant M as Magewise MCP
+    participant L as Model provider
+    A->>A: git merge → conflicts
+    A->>M: resolve_pr(repo, repo_path or hunks only)
+    loop every hunk, in parallel
+        M->>M: deterministic merge?
+        alt needs judgment
+            M->>M: retrieve history for both sides
+            M->>L: classify + merge
+            L-->>M: label, intents, code
+        end
+    end
+    M-->>A: per hunk: conflict_markers, classification, resolution, reasoning, sources
+    A->>A: replace each textual-only hunk, leave semantic ones
+    A->>A: syntax check / nearby tests
+    A->>A: commit only if no hunk needs a human
 ```
 
 - **Retrieval**, with a local checkout (CLI, stdio MCP with `repo_path`): `git log -L` finds the commits since the merge base that touched exactly each side's lines, plus the older commits that made the base version of those lines what it was (why the code looked that way before either side changed it), then the PRs that merged them ("Merge pull request #N" or "(#N)") and the issues those link to. Without a checkout (hosted): similarity search over the index, preferring documents that touched the conflicted file.
 - **Free deterministic path** ([`resolver.deterministic`](magewise/resolver.py)): needs diff3 markers. Both sides identical → take it once. One side unchanged from the base → take the other. Otherwise diff each side against the base inside the hunk; if their edits touch different base lines and no line is added by one side and added or removed by the other, apply both. All comparisons are exact, so a whitespace-only change (e.g. a deleted blank line) is never dropped. Resolves about 3 in 10 real conflict hunks at 93% precision with no model, index or GitHub call.
-- **Model**: open-weights models through OpenAI-compatible APIs, behind one function in [magewise/llm.py](magewise/llm.py). Default order: Groq `gpt-oss-120b` (answers in seconds), then NVIDIA Nemotron if Groq errors or rate-limits (Groq's free tier allows about 8,000 tokens a minute, i.e. 1-2 hunks a minute). The response reports which model answered.
+- **Model**: OpenAI-compatible APIs behind one function in [magewise/llm.py](magewise/llm.py). Default order: Groq `gpt-oss-120b` (answers in seconds), then Gemini `gemini-3-flash-preview` (proprietary; only if `GEMINI_API_KEY` is set), then NVIDIA Nemotron, each taking over when the previous one errors or rate-limits (Groq's free tier allows about 8,000 tokens a minute, i.e. 1-2 hunks a minute). `LLM_PROVIDERS=groq,nvidia` keeps it to open-weights models. The response reports which model answered.
 - **Safety default**: anything ambiguous is classified *semantic*. Magewise proposes, the caller applies and tests.
 
 ## Evaluation
@@ -192,4 +250,5 @@ pytest -q tests
 - The index holds a repo's most recent PRs (300 by default); older conflicts get commit messages but not their PR discussion.
 - MCP: Magewise returns resolved content; the calling agent writes it and runs the tests. CLI: `--test` rolls back the whole run on failure; it doesn't yet isolate which hunk broke the tests.
 - A hosted (HTTP) server refuses `repo_path`, so a remote caller can't make it read repos on the server's own disk; hosted callers send `files` instead and get similarity-search history rather than git history.
-- Latency depends on the provider: Groq answers in seconds but its free tier rate-limits after 1-2 hunks a minute (the fallback takes over); NVIDIA's hosted Nemotron varies from seconds to ~2 minutes per call.
+- Latency depends on the provider: Groq answers in seconds but its free tier rate-limits after 1-2 hunks a minute (the fallback takes over); Gemini's preview model can return 503 under high demand; NVIDIA's hosted Nemotron varies from seconds to ~2 minutes per call.
+- The deterministic merge works line by line: two edits to the same line always go to the model, and it can't see that a change on one side breaks code the other side added nearby (the tests can).
