@@ -23,7 +23,7 @@ Call the MCP tool `resolve_pr` **once** for the whole merge:
 
 - `repo`: `owner/name`
 - Either `repo_path`: absolute path of the checkout where the merge is in progress (local `magewise-mcp` over stdio only; Magewise finds the conflicted files and reads the exact commits behind each side),
-- or `files`: `{"path/to/file.py": "<full file content with conflict markers>", ...}` for every conflicted file (`git diff --name-only --diff-filter=U` lists them). Use this with a hosted server.
+- or `files`: `{"path/to/file.py": "<that file's conflict hunks>", ...}` for every conflicted file (`git diff --name-only --diff-filter=U` lists them). Send **only the hunks** (each from its `<<<<<<<` line through its `>>>>>>>` line), not whole files: copying large files is slow and error-prone. Use this with a hosted server.
 - `pr_number`: the PR being merged, if there is one
 
 It takes seconds to a few minutes, depending on the number of hunks.
@@ -32,14 +32,13 @@ For a single hunk you can call `resolve_conflict` (`repo`, `file_path`, `conflic
 
 ## Reading the response
 
-For each file in `files`:
+For each file in `files`, `hunks` has one entry per hunk, in order, with `conflict_markers` (the exact original hunk text), `classification`, `resolution`, `reasoning`, `sources`, `model`.
 
-- `content`: the file with every safely resolved hunk applied. Hunks that need a human still have their conflict markers. **Write this back to the file.**
-- `hunks`: one entry per hunk, in order, with `classification`, `reasoning`, `sources`, `model`.
+**Apply with small edits:** for each `textual-only` hunk, replace its `conflict_markers` text in the file with its `resolution`. Don't rewrite whole files. (If you sent whole files, `content` is the file with all resolutions applied, and you can write that instead.)
 
 | `classification` | Meaning | What you do |
 |---|---|---|
-| `textual-only` | Both sides changed independent things; already merged in `content`. | Nothing extra; run the tests. |
+| `textual-only` | Both sides changed independent things. | Replace the hunk with `resolution`; run the tests. |
 | `semantic` | Both sides changed the same behavior differently, or Magewise isn't confident. | Leave the markers. Show `reasoning` to a human. Do not guess a merge. |
 | `error` | The model call failed. | Treat as needing a human. |
 
@@ -50,4 +49,5 @@ For each file in `files`:
 - Never hand-merge a hunk Magewise left with markers. A human has to choose.
 - Magewise can be wrong. Run the tests after writing the files and before committing.
 - If the tests fail, restore that file's conflict markers and report it as needing a human.
-- Don't `git add` a file that still contains conflict markers.
+- Don't `git add` a file that still contains conflict markers. If any hunk needs a human, the merge isn't finished: don't commit it.
+- Keep verification proportional: a syntax check (`python -m py_compile <changed .py files>`) or the tests nearest the changed code. Don't build environments or run a full suite unless asked.

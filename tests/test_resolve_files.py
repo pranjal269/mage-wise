@@ -27,6 +27,14 @@ def test_resolves_every_hunk_across_files_and_keeps_the_rest(monkeypatch):
     assert by_path["y.py"]["hunks"][0]["classification"] == "error"
     assert by_path["clean.py"]["hunks"] == []
     assert (out["resolved"], out["needs_human"]) == (1, 2)
+    assert [h["conflict_markers"] for h in by_path["x.py"]["hunks"]] == [H1, H2]  # for targeted edits
+
+
+def test_hunks_only_input_works(monkeypatch):
+    monkeypatch.setattr(core, "resolve", fake_resolve)
+    out = core.resolve_files("o/r", {"x.py": H1 + H2})  # what an agent sends instead of the whole file
+    assert [(h["classification"], h["resolution"]) for h in out["files"][0]["hunks"]] == [
+        ("textual-only", "a = 3\n"), ("semantic", None)]
 
 
 def test_keeps_crlf_line_endings(monkeypatch):

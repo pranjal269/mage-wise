@@ -90,15 +90,19 @@ async def resolve_pr(
 
     repo: "owner/name" on GitHub (index it once with index_repo first).
     Pass the conflicted files one of two ways:
-      files: {repo-relative path: full file content with conflict markers}, or
+      files: {repo-relative path: that file's conflict hunks}. Send ONLY the hunks (each one from its
+        <<<<<<< line through its >>>>>>> line, concatenated), not the whole file: large files are slow
+        and error-prone to copy. Whole-file content also works, or
       repo_path: absolute path of a local checkout with the merge in progress (local stdio server only);
         Magewise then finds the conflicted files itself and reads the exact commits behind each side.
     Use `git config merge.conflictstyle diff3` before merging; accuracy is much better with it.
 
-    Returns per file: `content` (write this back: textual-only hunks resolved, every other hunk still
-    has its conflict markers for a human), `hunks` (each hunk's classification, reasoning, sources,
-    model), `resolved` and `needs_human` counts; plus totals. Run the tests before committing.
-    Takes seconds to a few minutes depending on the number of hunks.
+    Returns per file `hunks`: each with `conflict_markers` (the exact original hunk text), its
+    `classification`, `resolution`, `reasoning`, `sources`, `model`. To apply: for each textual-only
+    hunk, replace its `conflict_markers` text in the file with `resolution` (a small targeted edit);
+    leave every other hunk's markers for a human. Also returns `content` (the input with resolutions
+    applied: the whole file if you sent the whole file), and resolved/needs_human counts.
+    Run the tests before committing. Takes seconds to a few minutes depending on the number of hunks.
     """
     repo_path = _local_path(repo_path)
     if files is None:

@@ -95,7 +95,8 @@ def resolve_files(
                 if "\r\n" in hunk:  # model output is LF; match the file's line endings
                     merged = merged.replace("\n", "\r\n")
                 content = content.replace(hunk, merged, 1)
-            file_hunks.append({"index": len(file_hunks), **r})
+            # conflict_markers lets an agent swap just this hunk with a small edit instead of rewriting the file.
+            file_hunks.append({"index": len(file_hunks), "conflict_markers": hunk, **r})
         resolved = sum(h["classification"] == "textual-only" for h in file_hunks)
         out.append({"path": path, "content": content, "hunks": file_hunks,
                     "resolved": resolved, "needs_human": len(file_hunks) - resolved})
