@@ -22,11 +22,15 @@ def resolve(
     """
     if len(re.findall(r"^<{7}", conflict_markers, re.M)) > 1:
         raise ValueError("pass one conflict hunk per call (from <<<<<<< to >>>>>>>)")
-    if commits is None and repo_path and (refs := githistory.merge_refs(repo_path)):
-        ours, _, theirs = retriever.parse_conflict(conflict_markers)
-        commits = githistory.side_commits(repo_path, *refs, file_path, ours, theirs)
-    ctx = retriever.retrieve(repo, pr_number, file_path, conflict_markers, before, commits)
-    verdict = resolver.resolve_hunk(file_path, conflict_markers, ctx)
+    # One side unchanged from the base: no judgment needed, so skip history (no index/GitHub) and the model.
+    if verdict := resolver.trivial(conflict_markers):
+        ctx = []
+    else:
+        if commits is None and repo_path and (refs := githistory.merge_refs(repo_path)):
+            ours, _, theirs = retriever.parse_conflict(conflict_markers)
+            commits = githistory.side_commits(repo_path, *refs, file_path, ours, theirs)
+        ctx = retriever.retrieve(repo, pr_number, file_path, conflict_markers, before, commits)
+        verdict = resolver.resolve_hunk(file_path, conflict_markers, ctx)
     return {
         "classification": verdict["label"],
         "resolution": verdict["resolution"],

@@ -6,6 +6,7 @@ from functools import partial
 
 import anyio
 from mcp.server.mcpserver import Context, MCPServer
+from mcp.server.transport_security import TransportSecuritySettings
 
 from . import core, indexer
 
@@ -80,13 +81,35 @@ def _require_token(app, token: str):
     expected = f"Bearer {token}".encode()
 
     async def guarded(scope, receive, send):
-        if scope["type"] == "http" and not hmac.compare_digest(dict(scope["headers"]).get(b"authorization", b""), expected):
+        got = dict(scope["headers"]).get(b"authorization", b"") if scope["type"] == "http" else expected
+        if not hmac.compare_digest(got, expected):
+            # Say why, never the token itself, so a misconfigured client is diagnosable from the server log.
+            if not got:
+                why = "no Authorization header"
+            elif b"${" in got:
+                why = "placeholder ${...} was sent literally, not substituted"
+            elif not got.startswith(b"Bearer "):
+                why = f"scheme is not Bearer (starts with {got.split(b' ')[0][:12]!r})"
+            else:
+                why = f"token mismatch (got {len(got) - 7} chars, expected {len(expected) - 7})"
+            print(f"401 {scope['method']} {scope['path']}: {why}", file=sys.stderr, flush=True)
             await send({"type": "http.response.start", "status": 401, "headers": [(b"content-type", b"text/plain")]})
             await send({"type": "http.response.body", "body": b"missing or wrong bearer token"})
             return
         await app(scope, receive, send)
 
     return guarded
+
+
+def _root_alias(app):
+    """Some MCP clients post to the bare host URL; serve it at /mcp too."""
+
+    async def aliased(scope, receive, send):
+        if scope["type"] == "http" and scope["path"] == "/":
+            scope = {**scope, "path": "/mcp", "raw_path": b"/mcp"}
+        await app(scope, receive, send)
+
+    return aliased
 
 
 def main() -> None:
@@ -106,7 +129,10 @@ def main() -> None:
     if not token and args.host not in ("127.0.0.1", "localhost"):
         # The tools spend the server's GitHub and model credits; never expose them unauthenticated.
         sys.exit("refusing to listen on a public interface without MAGEWISE_TOKEN set")
-    app = mcp.streamable_http_app(host=args.host, stateless_http=True)
+    # The SDK's Host-header check only allows localhost, which rejects tunnels and real domains (421).
+    # With a bearer token set, requests are already authenticated, so the check is redundant.
+    security = TransportSecuritySettings(enable_dns_rebinding_protection=False) if token else None
+    app = _root_alias(mcp.streamable_http_app(host=args.host, stateless_http=True, transport_security=security))
     uvicorn.run(_require_token(app, token) if token else app, host=args.host, port=args.port)
 
 

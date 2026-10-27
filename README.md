@@ -75,6 +75,8 @@ Local (stdio):
 }
 ```
 
+**Claude Code:** this repo ships a project-scoped [.mcp.json](.mcp.json). After `pip install`, open the repo in `claude` with `GITHUB_TOKEN` and `NVIDIA_API_KEY` set in your shell, approve the `magewise` server when prompted, and the tools are available.
+
 Hosted (streamable HTTP at `/mcp`, bearer-token auth required on any non-local interface):
 
 ```bash
@@ -122,12 +124,14 @@ curl -X POST localhost:8000/resolve -H "Content-Type: application/json" \
 ```
 GitHub (PRs, commits, reviews, issues) --index--> ChromaDB
                                                      |
-conflict hunk --> retrieve history for both sides ---+
+conflict hunk --> one side unchanged from base? --yes--> take the other side (no model, no index)
+              --> retrieve history for both sides ---+
               --> one model call: intents + label (+ merged hunk if textual-only)
               --> validate (parseable, no leftover markers) --> response
 ```
 
 - **Retrieval**, with a local checkout (CLI, stdio MCP with `repo_path`): `git log -L` finds the commits since the merge base that touched exactly each side's lines, then the PRs that merged them ("Merge pull request #N" or "(#N)") and the issues those link to. Without a checkout (hosted): similarity search over the index, preferring documents that touched the conflicted file.
+- **Free fast path**: with diff3 markers, if one side left the region exactly as it was in the common ancestor, only the other side really changed it, so Magewise takes that side without calling the model or touching the index. It fires on 2 of the 40 eval hunks (both match the maintainer); small, but free and safe.
 - **Model**: NVIDIA Nemotron (open weights) through an OpenAI-compatible API, behind one function in [magewise/llm.py](magewise/llm.py).
 - **Safety default**: anything ambiguous is classified *semantic*. Magewise proposes, the caller applies and tests.
 
@@ -153,6 +157,10 @@ python eval/harness.py /tmp/flask --repo pallets/flask --max-hunks 40 --history 
 pip install -e ".[dev]"
 pytest -q tests
 ```
+
+## License
+
+[MIT](LICENSE)
 
 ## Limitations
 

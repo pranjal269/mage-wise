@@ -2,7 +2,7 @@ import json
 import re
 
 from .llm import llm
-from .retriever import format_context
+from .retriever import format_context, parse_conflict
 
 LABELS = ("textual-only", "semantic")
 MARKER = re.compile(r"^(<{7}|\|{7}|={7}|>{7})", re.M)
@@ -47,12 +47,41 @@ def parse(out: str) -> tuple[dict, str | None]:
     return verdict, code.group(1) if code else None
 
 
+def _norm(code: str) -> str:
+    return "\n".join(line.rstrip() for line in code.strip("\n").splitlines())
+
+
+def trivial(conflict_markers: str) -> dict | None:
+    """Resolve without a model when one side left the region as it was in the base.
+
+    Then only the other side made a real change, so there's no intent to weigh: take it.
+    Needs diff3 markers (the base section); returns None when both sides changed the region.
+    """
+    ours, base, theirs = parse_conflict(conflict_markers)
+    if not base:
+        return None
+    for unchanged, changed, name in ((ours, theirs, "Ours"), (theirs, ours, "Theirs")):
+        if _norm(unchanged) == _norm(base) and _norm(changed) != _norm(base):
+            other = "theirs" if name == "Ours" else "ours"
+            return {
+                "label": "textual-only",
+                "reason": f"{name} left this region as it was in the common ancestor (ignoring whitespace), "
+                f"so only {other} changed it. Took {other} as-is; resolved without a model call.",
+                "ours_intent": "no change to this region" if name == "Ours" else "",
+                "theirs_intent": "no change to this region" if name == "Theirs" else "",
+                "resolution": changed,
+            }
+    return None
+
+
 def resolve_hunk(file_path: str, conflict_markers: str, ctx: list[dict]) -> dict:
     """F3+F4 in one model call: classify the hunk and, if textual-only, merge it.
 
     Returns {"label", "reason", "ours_intent", "theirs_intent", "resolution"}. Anything we can't trust
     (unparseable output, missing code, leftover markers) comes back as "semantic" so it is never auto-applied.
     """
+    if verdict := trivial(conflict_markers):
+        return verdict
     out = llm(PROMPT.format(file_path=file_path, conflict=conflict_markers, context=format_context(ctx)))
     verdict, code = parse(out)
     if verdict.get("label") not in LABELS:

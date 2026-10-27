@@ -56,6 +56,28 @@ def test_resolve_hunk_unparseable_is_semantic(monkeypatch):
     assert resolver.resolve_hunk("f.py", TWO_WAY, [])["label"] == "semantic"
 
 
+def _no_model(*_):
+    raise AssertionError("model must not be called")
+
+
+def test_trivial_takes_the_only_side_that_changed(monkeypatch):
+    monkeypatch.setattr(resolver, "llm", _no_model)
+    monkeypatch.setattr(core.retriever, "retrieve", _no_model)  # no index / GitHub either
+    ours_unchanged = "<<<<<<< HEAD\na = 0  \n||||||| base\na = 0\n=======\na = 2\n>>>>>>> feat\n"
+    out = core.resolve("o/r", "f.py", ours_unchanged)
+    assert out["classification"] == "textual-only"
+    assert out["resolution"] == "a = 2\n"
+    assert out["sources"] == []
+    theirs_unchanged = "<<<<<<< HEAD\na = 1\n||||||| base\na = 0\n=======\na = 0\n>>>>>>> feat\n"
+    assert resolver.trivial(theirs_unchanged)["resolution"] == "a = 1\n"
+
+
+def test_trivial_needs_base_and_a_real_one_sided_change():
+    assert resolver.trivial(TWO_WAY) is None  # no base section: can't tell who changed what
+    both_changed = "<<<<<<< HEAD\na = 1\n||||||| base\na = 0\n=======\na = 2\n>>>>>>> feat\n"
+    assert resolver.trivial(both_changed) is None
+
+
 def test_maintainer_hunks_extracts_each_resolution():
     conflicted = "top\n" + TWO_WAY + "middle\n" + DIFF3 + "end\n"
     assert hunks(conflicted) == [TWO_WAY, DIFF3]
