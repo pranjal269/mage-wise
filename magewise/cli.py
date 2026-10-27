@@ -1,7 +1,8 @@
 """magewise resolve: resolve the conflict hunks Git left in the working tree.
 
 Textual-only hunks are replaced with Magewise's merge (with --write); semantic ones are left as
-conflict markers for a human. Exits 1 if any hunk still needs a human.
+conflict markers for a human. With --test, the resolutions are kept only if the tests pass.
+Exits 1 if any hunk still needs a human or the tests failed.
 """
 import argparse
 import os
@@ -67,15 +68,44 @@ def resolve(args) -> int:
                 print("  proposed:\n    " + r["resolution"].rstrip("\n").replace("\n", "\n    "))
         print()
 
-    if args.write:
-        for f, t in texts.items():
-            with open(os.path.join(root, f), "w", encoding="utf-8", newline="") as fh:
-                fh.write(t)
-        print(f"Wrote resolutions. Run your tests before committing.")
-    else:
+    originals = {f: t for f, t, _ in jobs}
+    changed = {f: t for f, t in texts.items() if t != originals[f]}
+    tests_ok = True
+    if changed and (args.write or args.test):
+        _write(root, changed)
+        if args.test:
+            tests_ok = _run_tests(root, args.test, args.test_timeout)
+        # Dry runs always roll back; a failed test run rolls back unless asked to keep the result.
+        if not args.write or not (tests_ok or args.keep_on_fail):
+            _write(root, {f: originals[f] for f in changed})
+            print("Rolled back: files are back to their conflict markers.")
+        else:
+            print("Wrote resolutions." + ("" if args.test else " Run your tests before committing."))
+    elif not args.write:
         print("Dry run: nothing written. Re-run with --write to apply the resolved hunks.")
     print(f"{len(jobs) - pending} resolved, {pending} need a human.")
-    return 1 if pending else 0
+    return 1 if pending or not tests_ok else 0
+
+
+def _write(root: str, texts: dict[str, str]) -> None:
+    for f, t in texts.items():
+        with open(os.path.join(root, f), "w", encoding="utf-8", newline="") as fh:
+            fh.write(t)
+
+
+def _run_tests(root: str, command: str, timeout: int) -> bool:
+    """Run the user's test command with resolutions applied. True if it exits 0."""
+    print(f"Running tests: {command}")
+    try:
+        out = subprocess.run(command, shell=True, cwd=root, capture_output=True, text=True,
+                             encoding="utf-8", errors="replace", timeout=timeout)
+    except subprocess.TimeoutExpired:
+        print(f"TESTS TIMED OUT after {timeout}s.")
+        return False
+    tail = "\n".join((out.stdout + out.stderr).strip().splitlines()[-25:])
+    print(("TESTS PASSED" if out.returncode == 0 else f"TESTS FAILED (exit {out.returncode})") + "\n  "
+          + tail.replace("\n", "\n  "))
+    return out.returncode == 0
 
 
 def main() -> None:
@@ -85,6 +115,10 @@ def main() -> None:
     r.add_argument("files", nargs="*", help="conflicted files (default: all, repo-relative)")
     r.add_argument("--repo", help="owner/name (default: from the origin remote)")
     r.add_argument("--write", action="store_true", help="write resolved hunks to the files")
+    r.add_argument("--test", metavar="CMD", help='test command run with resolutions applied, e.g. "pytest -q"; '
+                   "on failure the files are rolled back (without --write, always rolled back)")
+    r.add_argument("--keep-on-fail", action="store_true", help="with --write --test: keep resolutions even if tests fail")
+    r.add_argument("--test-timeout", type=int, default=1800, help="seconds before the test run counts as failed")
     r.add_argument("--workers", type=int, default=4)
     i = sub.add_parser("index", help="index a GitHub repo's history")
     i.add_argument("repo", nargs="?", help="owner/name (default: from the origin remote)")

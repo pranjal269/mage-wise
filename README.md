@@ -32,7 +32,7 @@ What this shows, and doesn't:
 - **Magewise beats picking a side by a wide margin in every mode**, and most of that is there even without history, so it comes from the model reading the conflict with its common ancestor (diff3 markers).
 - **Git history gets the most hunks right** (22 vs 20 without history) by finding the actual commits behind each side; for example, it learns that one side of a merge was "Reformat with black". **Similarity search is the most cautious**: fewest wrong answers, but it defers the most.
 - The differences between modes are a few hunks on a small, clustered sample (several hunks share a merge), and run-to-run model variance wasn't measured, so none of them is statistically established.
-- "Resolved but different" includes formatting-only differences (quote style, trailing commas) and real errors. In git mode, 1 of the 7 is formatting-only by an automatic check, and at least one more is only a line break. The rest are wrong, so **always run the tests before committing a resolution**.
+- "Resolved but different" includes formatting-only differences (quote style, trailing commas) and real errors. In git mode, 1 of the 7 is formatting-only by an automatic check, and at least one more is only a line break. The rest are wrong, which is why the CLI can gate resolutions on your tests (`--test`) and the MCP skill tells agents to run tests before committing.
 
 Matching is whitespace-insensitive, otherwise exact. The 40 hunks are all the scorable ones found walking Flask's merges newest-first, not a hand-picked set. History is limited to what existed before each merge.
 
@@ -101,11 +101,13 @@ Calls take 30s to 2 minutes; the server sends progress notifications every 10s s
 After a merge stops on conflicts:
 
 ```bash
-magewise resolve            # dry run: shows what it would do for every hunk
-magewise resolve --write    # writes textual-only resolutions; semantic hunks keep their markers
+magewise resolve                                # dry run: shows what it would do for every hunk
+magewise resolve --write                        # writes textual-only resolutions; semantic hunks keep their markers
+magewise resolve --write --test "pytest -q"     # keeps the resolutions only if the tests pass
+magewise resolve --test "pytest -q"             # preview: apply, test, always roll back
 ```
 
-Exits 1 if any hunk still needs a human.
+With `--test`, a failing run rolls every file back to its conflict markers, so you never end up with a merge that breaks the build (`--keep-on-fail` keeps it for inspection). Exits 1 if any hunk still needs a human or the tests failed.
 
 ### REST API
 
@@ -166,5 +168,5 @@ pytest -q tests
 
 - Hosted mode has no checkout, so it attributes history to each side by similarity, which is much weaker than the git-based lookup.
 - The index holds a repo's most recent PRs (300 by default); older conflicts get commit messages but not their PR discussion.
-- One hunk per call; hunk quality depends on the model. Always run tests before committing a resolution.
+- MCP: one hunk per call, and the calling agent applies and tests the result. CLI: `--test` rolls back the whole run on failure; it doesn't yet isolate which hunk broke the tests.
 - Hosted Nemotron latency varies from seconds to ~2 minutes per call.
