@@ -6,8 +6,8 @@ Real merge conflicts from pallets/flask's history, recreated from each merge's p
 |---|---|
 | Conflict hunks evaluated | 40 |
 | Resolved automatically (textual-only) | 19 (48%) |
-| ...matching the maintainer exactly | **15 / 19 (79%)** |
-| ...not matching | 4 |
+| ...matching the maintainer exactly | **14 / 19 (74%)** |
+| ...not matching | 5 |
 | Deferred to a human (semantic) | 21 |
 | Baseline "always take ours" | 6 / 40 (15%) |
 | Baseline "always take theirs" | 5 / 40 (12%) |
@@ -42,7 +42,7 @@ Matching ignores trailing whitespace and leading/trailing blank lines. History i
 | `7d2ba3e1fc:src/flask/json/__init__.py:0` | combined | semantic | deferred |
 | `ef27c1b749:setup.py:0` | ours | semantic | deferred |
 | `9b424e9da9:setup.py:0` | ours | semantic | deferred |
-| `7fdd0df6ec:docs/conf.py:0` | theirs | textual-only | match |
+| `7fdd0df6ec:docs/conf.py:0` | theirs | textual-only | mismatch |
 | `563ef469f7:docs/conf.py:0` | theirs | semantic | deferred |
 | `2844fdb82e:src/flask/cli.py:0` | combined | textual-only | mismatch |
 | `b05a685a03:examples/tutorial/tests/test_db.py:0` | combined | semantic | deferred |

@@ -9,7 +9,6 @@ import os
 import re
 import subprocess
 import sys
-from concurrent.futures import ThreadPoolExecutor
 
 from . import core, indexer
 from .retriever import hunks
@@ -27,49 +26,30 @@ def _github_repo() -> str:
     return m.group(1)
 
 
-def _resolve(repo: str, root: str, path: str, hunk: str) -> dict:
-    try:
-        return core.resolve(repo, path, hunk, repo_path=root)
-    except Exception as e:  # a failed hunk is reported as needing a human, never silently dropped
-        return {"classification": "error", "resolution": None, "reasoning": f"{type(e).__name__}: {e}", "sources": []}
-
-
 def resolve(args) -> int:
     root = _git("rev-parse", "--show-toplevel")
     repo = args.repo or _github_repo()
-    files = args.files or _git("-C", root, "diff", "--name-only", "--diff-filter=U").split()
-    if not files:
+    originals = core.conflicted_files(root, args.files)
+    total = sum(len(hunks(t)) for t in originals.values())
+    if not total:
         print("No conflicted files.")
         return 0
 
-    jobs = []
-    for f in files:
-        text = open(os.path.join(root, f), encoding="utf-8", newline="").read()  # keep CRLF as-is
-        jobs += [(f, text, h) for h in hunks(text)]
-    print(f"Resolving {len(jobs)} hunk(s) in {len(files)} file(s) against {repo} (30s-2min each)...\n")
-    with ThreadPoolExecutor(args.workers) as ex:
-        results = list(ex.map(lambda j: _resolve(repo, root, j[0], j[2]), jobs))
+    print(f"Resolving {total} hunk(s) in {len(originals)} file(s) against {repo} (seconds to 2 min each)...\n")
+    batch = core.resolve_files(repo, originals, repo_path=root, workers=args.workers)
+    for f in batch["files"]:
+        for h in f["hunks"]:
+            ok = h["classification"] == "textual-only"
+            print(f"{'RESOLVED' if ok else 'NEEDS HUMAN'}  {f['path']}  ({h['classification']})")
+            print("  " + h["reasoning"].replace("\n", "\n  "))
+            if h["sources"]:
+                print(f"  sources: {', '.join(h['sources'])}")
+            if ok and not args.write:
+                print("  proposed:\n    " + h["resolution"].rstrip("\n").replace("\n", "\n    "))
+            print()
 
-    texts = {f: t for f, t, _ in jobs}
-    pending = 0
-    for (f, _, hunk), r in zip(jobs, results):
-        ok = r["classification"] == "textual-only"
-        pending += not ok
-        print(f"{'RESOLVED' if ok else 'NEEDS HUMAN'}  {f}  ({r['classification']})")
-        print("  " + r["reasoning"].replace("\n", "\n  "))
-        if r["sources"]:
-            print(f"  sources: {', '.join(r['sources'])}")
-        if ok:
-            merged = r["resolution"].replace("\r\n", "\n")
-            if "\r\n" in hunk:  # model output is LF; match the file's line endings
-                merged = merged.replace("\n", "\r\n")
-            texts[f] = texts[f].replace(hunk, merged, 1)
-            if not args.write:
-                print("  proposed:\n    " + r["resolution"].rstrip("\n").replace("\n", "\n    "))
-        print()
-
-    originals = {f: t for f, t, _ in jobs}
-    changed = {f: t for f, t in texts.items() if t != originals[f]}
+    pending = batch["needs_human"]
+    changed = {f["path"]: f["content"] for f in batch["files"] if f["content"] != originals[f["path"]]}
     tests_ok = True
     if changed and (args.write or args.test):
         _write(root, changed)
@@ -83,7 +63,7 @@ def resolve(args) -> int:
             print("Wrote resolutions." + ("" if args.test else " Run your tests before committing."))
     elif not args.write:
         print("Dry run: nothing written. Re-run with --write to apply the resolved hunks.")
-    print(f"{len(jobs) - pending} resolved, {pending} need a human.")
+    print(f"{batch['resolved']} resolved, {pending} need a human.")
     return 1 if pending or not tests_ok else 0
 
 

@@ -38,10 +38,10 @@ What this shows, and doesn't:
 
 | | Resolved automatically | Identical to the maintainer | Resolved but different | Deferred | Speed per call |
 |---|---|---|---|---|---|
-| Groq `gpt-oss-120b` (default) | 19 | 15 (79% of resolved) | 4 | 21 | 1-5 s |
+| Groq `gpt-oss-120b` (default) | 19 | 14 (74% of resolved) | 5 | 21 | 1-5 s |
 | NVIDIA Nemotron | 29 | 21 (72%) | 6 | 11 | 8-140 s |
 
-Groq is more cautious: it hands more hunks to a human but is wrong less often, and it is much faster. Both get the demo conflicts right. Per-hunk table: [groq](eval/results-git-groq.md).
+Precision is about the same (74% vs 72%); Groq hands more hunks to a human instead of guessing, and it is much faster. Both get the demo conflicts right. Per-hunk table: [groq](eval/results-git-groq.md).
 
 Matching is whitespace-insensitive, otherwise exact. The 40 hunks are all the scorable ones found walking Flask's merges newest-first, not a hand-picked set. History is limited to what existed before each merge. The base-history run also added one prompt line explaining base-history entries.
 
@@ -101,7 +101,8 @@ Tools:
 | Tool | Does |
 |---|---|
 | `index_repo(repo, since?, limit?)` | Index a GitHub repo's merged PRs, review comments and issues. |
-| `resolve_conflict(repo, file_path, conflict_markers, pr_number?)` | Classify one hunk; return `classification`, `resolution` (or `null`), `reasoning`, `sources`. |
+| `resolve_pr(repo, files or repo_path, pr_number?)` | Resolve **every** hunk in every conflicted file in one call, in parallel. Returns each file's new `content` (resolved hunks applied, the rest keep their markers) plus per-hunk results. |
+| `resolve_conflict(repo, file_path, conflict_markers, pr_number?, repo_path?)` | Classify one hunk; return `classification`, `resolution` (or `null`), `reasoning`, `sources`, `model`. |
 
 Calls take 30s to 2 minutes; the server sends progress notifications every 10s so clients don't time out.
 
@@ -122,6 +123,8 @@ With `--test`, a failing run rolls every file back to its conflict markers, so y
 
 ```bash
 uvicorn magewise.main:app
+curl -X POST localhost:8000/resolve-pr -H "Content-Type: application/json" \
+  -d '{"repo": "pallets/flask", "files": {"src/flask/app.py": "<file content with conflict markers>"}}'
 curl -X POST localhost:8000/resolve -H "Content-Type: application/json" \
   -d '{"repo": "pallets/flask", "file_path": "src/flask/app.py", "conflict_markers": "<<<<<<< HEAD\n..."}'
 ```
@@ -135,14 +138,14 @@ curl -X POST localhost:8000/resolve -H "Content-Type: application/json" \
 ```
 GitHub (PRs, commits, reviews, issues) --index--> ChromaDB
                                                      |
-conflict hunk --> one side unchanged from base? --yes--> take the other side (no model, no index)
+conflict hunk --> one side byte-identical to base? --yes--> take the other side (no model, no index)
               --> retrieve history for both sides ---+
               --> one model call: intents + label (+ merged hunk if textual-only)
               --> validate (parseable, no leftover markers) --> response
 ```
 
 - **Retrieval**, with a local checkout (CLI, stdio MCP with `repo_path`): `git log -L` finds the commits since the merge base that touched exactly each side's lines, plus the older commits that made the base version of those lines what it was (why the code looked that way before either side changed it), then the PRs that merged them ("Merge pull request #N" or "(#N)") and the issues those link to. Without a checkout (hosted): similarity search over the index, preferring documents that touched the conflicted file.
-- **Free fast path**: with diff3 markers, if one side left the region exactly as it was in the common ancestor, only the other side really changed it, so Magewise takes that side without calling the model or touching the index. It fires on 2 of the 40 eval hunks (both match the maintainer); small, but free and safe.
+- **Free fast path**: with diff3 markers, if one side left the region byte-for-byte as it was in the common ancestor, only the other side changed it, so Magewise takes that side without the model or the index. Git already auto-merges such regions itself, so on Git's own conflicts this rarely fires; it's a lossless safety net. (An earlier version ignored whitespace and could silently drop a side's whitespace-only change, such as a deleted blank line; it now compares exactly.)
 - **Model**: open-weights models through OpenAI-compatible APIs, behind one function in [magewise/llm.py](magewise/llm.py). Default order: Groq `gpt-oss-120b` (answers in seconds), then NVIDIA Nemotron if Groq errors or rate-limits (Groq's free tier allows about 8,000 tokens a minute, i.e. 1-2 hunks a minute). The response reports which model answered.
 - **Safety default**: anything ambiguous is classified *semantic*. Magewise proposes, the caller applies and tests.
 
@@ -178,5 +181,6 @@ pytest -q tests
 
 - Hosted mode has no checkout, so it attributes history to each side by similarity, which is much weaker than the git-based lookup.
 - The index holds a repo's most recent PRs (300 by default); older conflicts get commit messages but not their PR discussion.
-- MCP: one hunk per call, and the calling agent applies and tests the result. CLI: `--test` rolls back the whole run on failure; it doesn't yet isolate which hunk broke the tests.
+- MCP: Magewise returns resolved content; the calling agent writes it and runs the tests. CLI: `--test` rolls back the whole run on failure; it doesn't yet isolate which hunk broke the tests.
+- A hosted (HTTP) server refuses `repo_path`, so a remote caller can't make it read repos on the server's own disk; hosted callers send `files` instead and get similarity-search history rather than git history.
 - Latency depends on the provider: Groq answers in seconds but its free tier rate-limits after 1-2 hunks a minute (the fallback takes over); NVIDIA's hosted Nemotron varies from seconds to ~2 minutes per call.

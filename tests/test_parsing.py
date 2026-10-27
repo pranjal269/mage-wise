@@ -63,7 +63,7 @@ def _no_model(*_):
 def test_trivial_takes_the_only_side_that_changed(monkeypatch):
     monkeypatch.setattr(resolver, "llm", _no_model)
     monkeypatch.setattr(core.retriever, "retrieve", _no_model)  # no index / GitHub either
-    ours_unchanged = "<<<<<<< HEAD\na = 0  \n||||||| base\na = 0\n=======\na = 2\n>>>>>>> feat\n"
+    ours_unchanged = "<<<<<<< HEAD\na = 0\n||||||| base\na = 0\n=======\na = 2\n>>>>>>> feat\n"
     out = core.resolve("o/r", "f.py", ours_unchanged)
     assert out["classification"] == "textual-only"
     assert out["resolution"] == "a = 2\n"
@@ -76,6 +76,9 @@ def test_trivial_needs_base_and_a_real_one_sided_change():
     assert resolver.trivial(TWO_WAY) is None  # no base section: can't tell who changed what
     both_changed = "<<<<<<< HEAD\na = 1\n||||||| base\na = 0\n=======\na = 2\n>>>>>>> feat\n"
     assert resolver.trivial(both_changed) is None
+    # A whitespace-only change is still a change: taking the other side would silently drop it.
+    blank_line_deleted = "<<<<<<< HEAD\n\nx  # pragma\n||||||| base\n\nx\n=======\nx\n>>>>>>> feat\n"
+    assert resolver.trivial(blank_line_deleted) is None
 
 
 def test_maintainer_hunks_extracts_each_resolution():

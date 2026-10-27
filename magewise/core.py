@@ -1,4 +1,6 @@
+import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 
 from . import githistory, resolver, retriever
 
@@ -41,4 +43,64 @@ def resolve(
         ),
         "sources": [h["id"] for h in ctx],
         "model": verdict.get("model"),  # "provider/model" that answered; None when no model was needed
+    }
+
+
+def conflicted_files(repo_path: str, paths: list[str] | None = None) -> dict[str, str]:
+    """{repo-relative path: text with conflict markers} for the files Git reports as unmerged."""
+    paths = paths or githistory._git(repo_path, "diff", "--name-only", "--diff-filter=U").split()
+    out = {}
+    for p in paths:
+        full = os.path.join(repo_path, p)
+        if os.path.isfile(full):  # modify/delete conflicts leave no file to resolve hunk by hunk
+            with open(full, encoding="utf-8", newline="") as fh:  # newline="": keep CRLF as-is
+                out[p] = fh.read()
+    return out
+
+
+def resolve_files(
+    repo: str,
+    files: dict[str, str],
+    pr_number: int | None = None,
+    repo_path: str | None = None,
+    workers: int = 4,
+) -> dict:
+    """Resolve every conflict hunk in a whole PR's worth of files, in parallel.
+
+    files: {path: full text with conflict markers}. Returns per file the new content (textual-only hunks
+    replaced, every other hunk left as its conflict markers) and each hunk's result, plus totals.
+    A hunk that fails (model or provider error) counts as needing a human; it never sinks the batch.
+    """
+    jobs = [(path, h) for path, text in files.items() for h in retriever.hunks(text)]
+
+    def one(job):
+        path, hunk = job
+        try:
+            return resolve(repo, path, hunk, pr_number, repo_path=repo_path)
+        except Exception as e:
+            return {"classification": "error", "resolution": None, "reasoning": f"{type(e).__name__}: {e}",
+                    "sources": [], "model": None}
+
+    with ThreadPoolExecutor(max(1, workers)) as ex:
+        results = list(ex.map(one, jobs))
+
+    out = []
+    for path, text in files.items():
+        content, file_hunks = text, []
+        for (p, hunk), r in zip(jobs, results):
+            if p != path:
+                continue
+            if r["classification"] == "textual-only":
+                merged = r["resolution"].replace("\r\n", "\n")
+                if "\r\n" in hunk:  # model output is LF; match the file's line endings
+                    merged = merged.replace("\n", "\r\n")
+                content = content.replace(hunk, merged, 1)
+            file_hunks.append({"index": len(file_hunks), **r})
+        resolved = sum(h["classification"] == "textual-only" for h in file_hunks)
+        out.append({"path": path, "content": content, "hunks": file_hunks,
+                    "resolved": resolved, "needs_human": len(file_hunks) - resolved})
+    return {
+        "files": out,
+        "resolved": sum(f["resolved"] for f in out),
+        "needs_human": sum(f["needs_human"] for f in out),
     }

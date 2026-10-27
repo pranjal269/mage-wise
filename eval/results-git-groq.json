@@ -213,13 +213,6 @@
   ],
   "model": "groq/openai/gpt-oss-120b"
  },
- "7a2d5fb6df:src/flask/typing.py:0": {
-  "classification": "textual-only",
-  "resolution": "\nif t.TYPE_CHECKING:  # pragma: no cover\n",
-  "reasoning": "Ours: ?\nTheirs: no change to this region\nTheirs left this region as it was in the common ancestor (ignoring whitespace), so only ours changed it. Took ours as-is; resolved without a model call.",
-  "sources": [],
-  "model": null
- },
  "9e2e1de2fc:src/flask/blueprints.py:0": {
   "classification": "semantic",
   "resolution": null,
@@ -345,13 +338,6 @@
    "commit-b146d8277a"
   ],
   "model": "groq/openai/gpt-oss-120b"
- },
- "7fdd0df6ec:docs/conf.py:0": {
-  "classification": "textual-only",
-  "resolution": "import packaging.version\n",
-  "reasoning": "Ours: no change to this region\nTheirs: ?\nOurs left this region as it was in the common ancestor (ignoring whitespace), so only theirs changed it. Took theirs as-is; resolved without a model call.",
-  "sources": [],
-  "model": null
  },
  "9b424e9da9:setup.py:0": {
   "classification": "semantic",
@@ -527,6 +513,26 @@
   "sources": [
    "commit-025589ee76",
    "commit-a4f0f19796"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "7a2d5fb6df:src/flask/typing.py:0": {
+  "classification": "textual-only",
+  "resolution": "if t.TYPE_CHECKING:  # pragma: no cover\n",
+  "reasoning": "Ours: Add a pragma comment to exclude the TYPE_CHECKING block from coverage\nTheirs: Leave the TYPE_CHECKING block unchanged\nOnly one side added a comment; the actual code behavior is identical.",
+  "sources": [
+   "commit-a74e266474",
+   "commit-77237093da"
+  ],
+  "model": "groq/openai/gpt-oss-120b"
+ },
+ "7fdd0df6ec:docs/conf.py:0": {
+  "classification": "textual-only",
+  "resolution": "import packaging\nimport packaging.version\n",
+  "reasoning": "Ours: retain the existing import of the top-level packaging package\nTheirs: import the packaging.version submodule to use version\u2011related helpers\nThe base and our version both have `import packaging`; the other branch only adds `.version` to the import, so the changes are independent and can be combined.",
+  "sources": [
+   "commit-4ed20657c6",
+   "commit-2a8ebc4411"
   ],
   "model": "groq/openai/gpt-oss-120b"
  }

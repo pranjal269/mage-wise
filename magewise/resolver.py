@@ -48,25 +48,24 @@ def parse(out: str) -> tuple[dict, str | None]:
     return verdict, code.group(1) if code else None
 
 
-def _norm(code: str) -> str:
-    return "\n".join(line.rstrip() for line in code.strip("\n").splitlines())
-
-
 def trivial(conflict_markers: str) -> dict | None:
     """Resolve without a model when one side left the region as it was in the base.
 
     Then only the other side made a real change, so there's no intent to weigh: take it.
     Needs diff3 markers (the base section); returns None when both sides changed the region.
     """
-    ours, base, theirs = parse_conflict(conflict_markers)
+    ours, base, theirs = parse_conflict(conflict_markers)  # line endings already normalized
     if not base:
         return None
+    # Exact comparison on purpose: ignoring whitespace here would silently drop a side's whitespace-only
+    # change (e.g. a deleted blank line). Git already auto-merges regions where one side equals the base,
+    # so this rarely fires on Git's own conflicts; it's a free safety net for other merge tools' markers.
     for unchanged, changed, name in ((ours, theirs, "Ours"), (theirs, ours, "Theirs")):
-        if _norm(unchanged) == _norm(base) and _norm(changed) != _norm(base):
+        if unchanged == base and changed != base:
             other = "theirs" if name == "Ours" else "ours"
             return {
                 "label": "textual-only",
-                "reason": f"{name} left this region as it was in the common ancestor (ignoring whitespace), "
+                "reason": f"{name} left this region exactly as it was in the common ancestor, "
                 f"so only {other} changed it. Took {other} as-is; resolved without a model call.",
                 "ours_intent": "no change to this region" if name == "Ours" else "",
                 "theirs_intent": "no change to this region" if name == "Theirs" else "",

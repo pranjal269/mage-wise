@@ -14,10 +14,20 @@ mcp = MCPServer(
     "magewise",
     instructions=(
         "Resolves Git merge conflicts using the repo's PR/issue history. When a merge or rebase leaves "
-        "conflict markers, call resolve_conflict once per hunk. It returns a proposed hunk (or says a "
-        "human must decide); you apply it and run the tests yourself."
+        "conflict markers, call resolve_pr once for all conflicted files (or resolve_conflict per hunk). "
+        "It returns resolved content (hunks a human must decide keep their markers); you write it and "
+        "run the tests yourself."
     ),
 )
+
+# Set when serving HTTP: a remote caller must not make the server read repos on its own disk.
+_HOSTED = False
+
+
+def _local_path(repo_path: str | None) -> str | None:
+    if repo_path and _HOSTED:
+        raise ValueError("repo_path is only accepted by a local (stdio) server; send the files instead")
+    return repo_path
 
 
 async def _with_heartbeat(ctx: Context, fn):
@@ -64,8 +74,38 @@ async def resolve_conflict(
     Never commit a resolution for a "semantic" classification. Takes 30s to 2 minutes.
     """
     return await _with_heartbeat(
-        ctx, partial(core.resolve, repo, file_path, conflict_markers, pr_number, repo_path=repo_path)
+        ctx, partial(core.resolve, repo, file_path, conflict_markers, pr_number, repo_path=_local_path(repo_path))
     )
+
+
+@mcp.tool()
+async def resolve_pr(
+    repo: str,
+    ctx: Context,
+    files: dict[str, str] | None = None,
+    repo_path: str | None = None,
+    pr_number: int | None = None,
+) -> dict:
+    """Resolve EVERY merge-conflict hunk in a PR or merge at once (hunks run in parallel).
+
+    repo: "owner/name" on GitHub (index it once with index_repo first).
+    Pass the conflicted files one of two ways:
+      files: {repo-relative path: full file content with conflict markers}, or
+      repo_path: absolute path of a local checkout with the merge in progress (local stdio server only);
+        Magewise then finds the conflicted files itself and reads the exact commits behind each side.
+    Use `git config merge.conflictstyle diff3` before merging; accuracy is much better with it.
+
+    Returns per file: `content` (write this back: textual-only hunks resolved, every other hunk still
+    has its conflict markers for a human), `hunks` (each hunk's classification, reasoning, sources,
+    model), `resolved` and `needs_human` counts; plus totals. Run the tests before committing.
+    Takes seconds to a few minutes depending on the number of hunks.
+    """
+    repo_path = _local_path(repo_path)
+    if files is None:
+        if not repo_path:
+            raise ValueError("pass either files or repo_path")
+        files = core.conflicted_files(repo_path)
+    return await _with_heartbeat(ctx, partial(core.resolve_files, repo, files, pr_number, repo_path))
 
 
 @mcp.tool()
@@ -125,6 +165,8 @@ def main() -> None:
 
     import uvicorn
 
+    global _HOSTED
+    _HOSTED = True
     token = os.environ.get("MAGEWISE_TOKEN")
     if not token and args.host not in ("127.0.0.1", "localhost"):
         # The tools spend the server's GitHub and model credits; never expose them unauthenticated.
