@@ -60,25 +60,40 @@ def _no_model(*_):
     raise AssertionError("model must not be called")
 
 
-def test_trivial_takes_the_only_side_that_changed(monkeypatch):
+def _hunk(ours, base, theirs):
+    return f"<<<<<<< HEAD\n{ours}||||||| base\n{base}=======\n{theirs}>>>>>>> feat\n"
+
+
+def test_deterministic_takes_the_only_side_that_changed(monkeypatch):
     monkeypatch.setattr(resolver, "llm", _no_model)
     monkeypatch.setattr(core.retriever, "retrieve", _no_model)  # no index / GitHub either
-    ours_unchanged = "<<<<<<< HEAD\na = 0\n||||||| base\na = 0\n=======\na = 2\n>>>>>>> feat\n"
-    out = core.resolve("o/r", "f.py", ours_unchanged)
+    out = core.resolve("o/r", "f.py", _hunk("a = 0\n", "a = 0\n", "a = 2\n"))
     assert out["classification"] == "textual-only"
     assert out["resolution"] == "a = 2\n"
-    assert out["sources"] == []
-    theirs_unchanged = "<<<<<<< HEAD\na = 1\n||||||| base\na = 0\n=======\na = 0\n>>>>>>> feat\n"
-    assert resolver.trivial(theirs_unchanged)["resolution"] == "a = 1\n"
+    assert (out["sources"], out["model"]) == ([], None)
+    assert resolver.deterministic(_hunk("a = 1\n", "a = 0\n", "a = 0\n"))["resolution"] == "a = 1\n"
+    assert resolver.deterministic(TWO_WAY.replace("a = 2", "a = 1"))["resolution"] == "a = 1\n"  # same change
 
 
-def test_trivial_needs_base_and_a_real_one_sided_change():
-    assert resolver.trivial(TWO_WAY) is None  # no base section: can't tell who changed what
-    both_changed = "<<<<<<< HEAD\na = 1\n||||||| base\na = 0\n=======\na = 2\n>>>>>>> feat\n"
-    assert resolver.trivial(both_changed) is None
-    # A whitespace-only change is still a change: taking the other side would silently drop it.
-    blank_line_deleted = "<<<<<<< HEAD\n\nx  # pragma\n||||||| base\n\nx\n=======\nx\n>>>>>>> feat\n"
-    assert resolver.trivial(blank_line_deleted) is None
+def test_deterministic_keeps_both_sides_of_adjacent_changes():
+    # Git conflicts here because the edits touch; they change different lines, so both are kept.
+    hunk = _hunk("def f(x, y):\n    return x\n", "def f(x):\n    return x\n", "def f(x):\n    return x + 1\n")
+    assert resolver.deterministic(hunk)["resolution"] == "def f(x, y):\n    return x + 1\n"
+    # A whitespace-only change is a change too: ours' blank-line deletion survives the merge.
+    hunk = _hunk("\nx  # pragma\n", "\nx\n", "x\n")
+    assert resolver.deterministic(hunk)["resolution"] == "x  # pragma\n"
+
+
+def test_deterministic_defers_when_judgment_is_needed():
+    assert resolver.deterministic(TWO_WAY) is None  # no base section: can't tell who changed what
+    assert resolver.deterministic(_hunk("a = 1\n", "a = 0\n", "a = 2\n")) is None  # same line, both changed
+    assert resolver.deterministic(_hunk("x\nb\n", "x\n", "x\nc\n")) is None  # two inserts at one spot
+    # Ours adds the import theirs added elsewhere: merging would duplicate it.
+    dup = _hunk("import a\nimport json\n", "import a\n", "import json\nimport a\n")
+    assert resolver.deterministic(dup) is None
+    # Ours moves a line that theirs deleted: merging would resurrect it.
+    moved = _hunk("import c\nimport b\n", "import b\nimport c\n", "import b\n")
+    assert resolver.deterministic(moved) is None
 
 
 def test_maintainer_hunks_extracts_each_resolution():

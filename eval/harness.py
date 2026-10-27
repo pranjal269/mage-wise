@@ -45,6 +45,7 @@ def reproduce(repo_dir: str, merge_sha: str) -> tuple[dict[str, str], dict[str, 
         conflicted = {f: open(p, encoding="utf-8", errors="replace").read() for f, p in paths.items() if os.path.isfile(p)}
     finally:
         git(repo_dir, "merge", "--abort", check=False)
+        git(repo_dir, "reset", "-q", "--hard", check=False)  # some old merges leave an index --abort can't undo
     return conflicted, {f: git(repo_dir, "show", f"{merge_sha}:{f}", check=False) for f in files}
 
 
@@ -86,7 +87,10 @@ def collect(repo_dir: str, max_hunks: int) -> list[dict]:
             break
         if not conflicted_py_files(repo_dir, sha):
             continue
-        conflicted, resolved = reproduce(repo_dir, sha)
+        try:
+            conflicted, resolved = reproduce(repo_dir, sha)
+        except subprocess.CalledProcessError:  # e.g. a path this OS can't check out (":" on Windows)
+            continue
         merged_at = datetime.fromisoformat(git(repo_dir, "log", "-1", "--format=%cI", sha).strip())
         for f, text in conflicted.items():
             hs = hunks(text)

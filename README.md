@@ -43,6 +43,15 @@ What this shows, and doesn't:
 
 Precision is about the same (74% vs 72%); Groq hands more hunks to a human instead of guessing, and it is much faster. Both get the demo conflicts right. Per-hunk table: [groq](eval/results-git-groq.md).
 
+**Deterministic resolution (no model, no history)** runs before any of the above. Git reports a conflict whenever the two sides' edits merely touch; a line-level three-way merge inside the hunk keeps both when they changed different lines of the common ancestor, and defers when a line one side added was also added or removed by the other (a move or a duplicate).
+
+| | Hunks | Resolved without a model | Identical to the maintainer |
+|---|---|---|---|
+| Flask + Jinja merge history (every scorable hunk) | 250 | 73 (29%) | 68 (93% of resolved) |
+| The 40-hunk eval above | 40 | 17 | 17 (Groq got 12 of those 17, Nemotron 16) |
+
+On the 40-hunk eval, putting it in front of Groq raises identical-to-maintainer from 14 to 19 and cuts model calls from 40 to 23. In front of Nemotron: 21 to 22, also 23 calls. These hunks never touch the index, GitHub or a model API.
+
 Matching is whitespace-insensitive, otherwise exact. The 40 hunks are all the scorable ones found walking Flask's merges newest-first, not a hand-picked set. History is limited to what existed before each merge. The base-history run also added one prompt line explaining base-history entries.
 
 Per-hunk tables: [git](eval/results-git.md), [git since merge base](eval/results-git-shallow.md), [similarity](eval/results-semantic.md), [none](eval/results-none.md).
@@ -138,14 +147,14 @@ curl -X POST localhost:8000/resolve -H "Content-Type: application/json" \
 ```
 GitHub (PRs, commits, reviews, issues) --index--> ChromaDB
                                                      |
-conflict hunk --> one side byte-identical to base? --yes--> take the other side (no model, no index)
+conflict hunk --> sides changed different lines of base? --yes--> line-level 3-way merge (no model, no index)
               --> retrieve history for both sides ---+
               --> one model call: intents + label (+ merged hunk if textual-only)
               --> validate (parseable, no leftover markers) --> response
 ```
 
 - **Retrieval**, with a local checkout (CLI, stdio MCP with `repo_path`): `git log -L` finds the commits since the merge base that touched exactly each side's lines, plus the older commits that made the base version of those lines what it was (why the code looked that way before either side changed it), then the PRs that merged them ("Merge pull request #N" or "(#N)") and the issues those link to. Without a checkout (hosted): similarity search over the index, preferring documents that touched the conflicted file.
-- **Free fast path**: with diff3 markers, if one side left the region byte-for-byte as it was in the common ancestor, only the other side changed it, so Magewise takes that side without the model or the index. Git already auto-merges such regions itself, so on Git's own conflicts this rarely fires; it's a lossless safety net. (An earlier version ignored whitespace and could silently drop a side's whitespace-only change, such as a deleted blank line; it now compares exactly.)
+- **Free deterministic path** ([`resolver.deterministic`](magewise/resolver.py)): needs diff3 markers. Both sides identical → take it once. One side unchanged from the base → take the other. Otherwise diff each side against the base inside the hunk; if their edits touch different base lines and no line is added by one side and added or removed by the other, apply both. All comparisons are exact, so a whitespace-only change (e.g. a deleted blank line) is never dropped. Resolves about 3 in 10 real conflict hunks at 93% precision with no model, index or GitHub call.
 - **Model**: open-weights models through OpenAI-compatible APIs, behind one function in [magewise/llm.py](magewise/llm.py). Default order: Groq `gpt-oss-120b` (answers in seconds), then NVIDIA Nemotron if Groq errors or rate-limits (Groq's free tier allows about 8,000 tokens a minute, i.e. 1-2 hunks a minute). The response reports which model answered.
 - **Safety default**: anything ambiguous is classified *semantic*. Magewise proposes, the caller applies and tests.
 

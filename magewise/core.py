@@ -24,8 +24,9 @@ def resolve(
     """
     if len(re.findall(r"^<{7}", conflict_markers, re.M)) > 1:
         raise ValueError("pass one conflict hunk per call (from <<<<<<< to >>>>>>>)")
-    # One side unchanged from the base: no judgment needed, so skip history (no index/GitHub) and the model.
-    if verdict := resolver.trivial(conflict_markers):
+    # Sides changed different lines (or only one side changed anything): no judgment needed, so skip
+    # history (no index/GitHub) and the model.
+    if verdict := resolver.deterministic(conflict_markers):
         ctx = []
     else:
         if commits is None and repo_path and (refs := githistory.merge_refs(repo_path)):
